@@ -3,7 +3,7 @@
 A Claude Code skill that runs business-analysis work as multi-agent workflows. You give it a BA request: discovery, requirements, a business case, a requirements audit, stakeholder analysis or process redesign. It works through the request like this:
 
 1. It **routes** the request to a workflow: 8 task workflows or 5 end-to-end scenarios.
-2. It **plans** the methods from a catalogue of **256 BA method cards**, and shows you the plan.
+2. It **plans** the methods from a catalogue of **259 BA method cards**, and shows you the plan.
 3. It **fans out** subagents in dependency waves:
    - researchers search your project sources through MCP (Confluence, Jira, SharePoint, GitHub, transcripts, whiteboards) and local files;
    - executors apply one method each;
@@ -20,7 +20,7 @@ Status: **v0.1 (pilot)**. See [Limitations](#limitations).
 skills/ba-orchestrator/          the skill (copy to .claude/skills/ba-orchestrator/)
   SKILL.md                       orchestrator procedure, routing table, rules
   references/
-    taxonomy.md                  8 tasks → 43 subtasks → 256 methods
+    taxonomy.md                  8 tasks → 43 subtasks → 259 methods
     tasks/T1..T8-*.md            per-task selection guides ("solves … / not for …")
     methods/<id>.md              method cards (16 fields; one variant per source)
     workflows/T*.md, E*.md       13 workflows: waves, default methods, switch rules, gates

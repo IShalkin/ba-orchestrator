@@ -138,6 +138,7 @@ TAXONOMY = [
    ]),
    ("3.3", "Вовлечение, конфликты и переговоры", [
      ("Stakeholder Management Planning", [107]),
+     ("Client Expectations Capture and Management", [431]),
      ("Thomas-Kilmann Conflict Mode Instrument", [108]),
      ("Principled Negotiation", [109]),
      ("Conflict Management and Resolution", [45, 323]),
@@ -150,6 +151,7 @@ TAXONOMY = [
    ("4.1", "Бизнес-процессы и работа пользователей", [
      ("Business Process Improvement", [3]),
      ("Business Process Modelling (BPMN, Swimlanes)", [115, 207, 386, 403, "m8:6"]),
+     ("Process Hierarchy, Process Design and End-to-End Scenarios", [432]),
      ("Activity Diagrams", [114, 244]),
      ("Process Analysis", [206]),
      ("Process Redesign Patterns", [120]),
@@ -255,6 +257,7 @@ TAXONOMY = [
    ("5.6", "Документ требований и формулировки", [
      ("PEGS Standard Plan", [22]),
      ("Requirements Specification Templates (SRS)", [399, 144, 355]),
+     ("Consolidated Solution Design Document", [433]),
      ("Requirements Engineering Process (End-to-End)", [4]),
      ("Requirement Writing Patterns", [354, 420]),
      ("EARS", [380, 400]),

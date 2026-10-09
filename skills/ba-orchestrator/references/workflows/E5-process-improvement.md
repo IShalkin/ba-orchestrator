@@ -13,6 +13,8 @@
 | 4 | `gap-analysis` (as-is vs to-be) · `popit-model` (the change dimensions) · `critical-success-factors-and-kpis` (benefit measures) | 3 |
 | 5 | `lewins-change-model` or `kotters-8-steps` · `sarah-model` (affected roles) · `benefits-management` | 4 |
 
+Switching rule: when the redesign covers a whole business area or a chain of interlinked processes rather than one process, use `process-hierarchy-process-design-and-end-to-end-scenarios` in wave 1 (as-is) and wave 3 (to-be) instead of a single `business-process-modelling-bpmn-swimlanes` model. Run the root-cause and gap work per process group, and keep the end-to-end scenarios as the check that handoffs between processes still work after the redesign.
+
 ## Gates
 1. After wave 2: confirm the root causes with the process-owner role, so that the redesign does not treat symptoms.
 2. After wave 3: confirm the to-be process before the gap analysis and change planning.

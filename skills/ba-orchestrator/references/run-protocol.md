@@ -21,7 +21,7 @@ ba-runs/<YYYYMMDD-HHMM>-<short-slug>/
 
 ## 2. Run state machine
 
-Phases: `INTAKE → PLAN → AWAIT_PLAN_APPROVAL → RESEARCH → EXECUTE (wave 1..n, with AWAIT_GATE between waves where the workflow has a gate) → SYNTHESIZE → REVIEW → PACKAGE → terminal`.
+Phases: `INTAKE → PLAN → AWAIT_PLAN_APPROVAL → RESEARCH → EXECUTE (wave 1..n, with AWAIT_GATE between waves where the workflow has a gate) → SYNTHESIZE → [EXECUTE: one assembly wave, only when the brief asks for one document (SKILL.md step 4b)] → REVIEW → PACKAGE → terminal`.
 
 Terminal states (`run_state.py terminal RUN_DIR <state> --reason "..."`):
 

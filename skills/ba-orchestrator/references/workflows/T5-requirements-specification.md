@@ -34,8 +34,15 @@
 | 5.7 Acceptance | `acceptance-and-fit-criteria` | `specification-by-example` (key examples, Given-When-Then) when the business rules are example-rich |
 | 5.6 Phrasing pass | `ears` / `requirement-writing-patterns` over every textual requirement | `development-process-requirements` when uncertainty is so high that you specify the process instead of the product |
 
-### Wave 4 — Assemble (needs wave 3)
+### Wave 4 — Assemble (needs wave 3; runs after SYNTHESIZE, see SKILL.md step 4b)
 One executor assembles the document in the chosen template, referencing the artifacts. Never re-write their content in it.
+
+| Brief's deliverable format | Template card |
+|---|---|
+| A requirements document for a team that designs the solution itself | `requirements-specification-templates-srs` or `pegs-standard-plan` |
+| One review-ready document covering requirements and the solution design (design sign-off, hand-off to a vendor or delivery team, go-live readiness) | `consolidated-solution-design-document` |
+
+The assembler also receives the synthesis outputs (`traceability.csv`, `open-questions.md`, `assumptions.md`, `conflicts.md`). They feed the traceability, risks and open-items sections. Sections with no feeding artifact are marked as gaps, never filled with invented design.
 
 ## Research questions (seed)
 - Which agreed needs, decisions or epics exist, with their status? Use only approved or current ones as the baseline.
@@ -47,6 +54,7 @@ One executor assembles the document in the chosen template, referencing the arti
 - Every requirement has an id, a source (`[E:]` or a link to a model or artifact), and acceptance criteria.
 - No vague qualifiers ("fast", "user-friendly") without a measurable target. The critic checks this against the NFR and phrasing cards.
 - UI detail is kept out of business rules and use case steps (anti-pattern in the use-cases and business-rules cards).
+- The assembled document marks every section complete, partial (with reason) or n/a (with reason). The critic checks each section against the template card's Quality Criteria (for the consolidated document: the reviewer focus of each section).
 
 ## Hand-offs
 The requirements set → WF-T6 (prioritise, baseline, trace) and WF-T7 (review, test).

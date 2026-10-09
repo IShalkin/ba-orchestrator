@@ -2338,6 +2338,27 @@
   "decisions": "Communication strategy, governance schedule, risk mitigation, change management intervention."
  },
  {
+  "id": "client-expectations-capture-and-management",
+  "name": "Client Expectations Capture and Management",
+  "task": "T3",
+  "task_name": "Stakeholders",
+  "subtask": "3.3",
+  "subtask_name": "Engagement, Conflict and Negotiation",
+  "aliases": [],
+  "variants": 1,
+  "path": "references/methods/client-expectations-capture-and-management.md",
+  "phases": [
+   "change management",
+   "discovery",
+   "elicitation"
+  ],
+  "problem": "Prevents the gap between what the client expects from the engagement (value, experience, way of working, solution preferences) and what is formally scoped, by capturing expectations separately from requirements and revisiting them as they shift; expectations change informally over time, requirements change only through change control.",
+  "uncertainty": "",
+  "when_not": "A very short, fixed-scope task with a single known stakeholder and no relationship component; purely internal work with no client or sponsor whose satisfaction is at stake.",
+  "outputs": "Expectations log (id, expectation in the holder's words, holder role, category: value / experience / solution, must or preference, scope position: in / out / unclear, status: confirmed / changed / retired / converted to requirement, last confirmed date, linked requirement or change request id); outcome summary shared with the client and the team; list of misaligned or unrealistic expectations with an agreed handling action.",
+  "decisions": "Engagement approach and communication cadence, scope negotiation, handling of change requests, steering escalations, client satisfaction risk."
+ },
+ {
   "id": "thomas-kilmann-conflict-mode-instrument",
   "name": "Thomas-Kilmann Conflict Mode Instrument",
   "task": "T3",
@@ -2521,6 +2542,27 @@
   "when_not": "For static data modeling or high-level conceptual business activity mapping. When describing static entity relationships (use Data Modelling) or high-level organizational structures (use Org Modelling). When process problems stem purely from lack of operational execution or missing roles rather than system gaps, or when minor low-risk changes do not justify formal flow modeling. When attempting to detail data structures, complex numerical logic, or object state changes without clear sequential workflows. Static, non-process tasks; creative research",
   "outputs": "Business Process Model / Swimlane Diagram (Event trigger, Actor swimlanes, Tasks, Decisions, Sequences, Outcomes, Timeline). Process Maps / Flowcharts (BPMN, UML Activity Diagrams, Swimlane Diagrams, As-Is/To-Be models). As-is process flows, to-be process flows, swimlane diagrams, activity diagrams, flowcharts, use cases. Swimlane diagram with visual lanes for actors/systems, process rectangles, decision diamonds, and transition arrows. Result: 'as-is' and 'to-be' process models with swimlanes. Artifacts: BPMN diagram, role matrix",
   "decisions": "End-to-end process redesign, handoff optimization, job role design, SLA definition, IT automation boundaries. Target operating model design, automation workflow spec, role responsibility assignment. Scope determination (which process steps to automate vs. keep manual), release phase planning, operational process change decisions. Scope, acceptance, process change. Scope, architecture, acceptance"
+ },
+ {
+  "id": "process-hierarchy-process-design-and-end-to-end-scenarios",
+  "name": "Process Hierarchy, Process Design and End-to-End Scenarios",
+  "task": "T4",
+  "task_name": "Modelling and Analysis",
+  "subtask": "4.1",
+  "subtask_name": "Business Processes and User Work",
+  "aliases": [],
+  "variants": 1,
+  "path": "references/methods/process-hierarchy-process-design-and-end-to-end-scenarios.md",
+  "phases": [
+   "analysis",
+   "specification",
+   "validation"
+  ],
+  "problem": "Prevents fragmented, inconsistent process models and missed handoffs in large scopes by building a complete process taxonomy top-down, designing every process with one template, and validating the whole with end-to-end scenarios that chain processes together.",
+  "uncertainty": "",
+  "when_not": "The scope is a single process or one small change (model it directly with Business Process Modelling); the scope is purely data or algorithmic, with no business process.",
+  "outputs": "Process hierarchy (levels: business area, capability, process group, process; unique ids; owner role per process); process design per leaf process (purpose, trigger, inputs and outputs, steps, decision points, business rules, roles, exceptions, system touchpoints, KPIs); end-to-end business scenarios (named chains of processes with the handoffs and data passed between them); coverage matrix (process x scenario) with orphans listed.",
+  "decisions": "Scope baseline and change impact, estimation, solution design, release grouping, test scenario design, process ownership."
  },
  {
   "id": "activity-diagrams",
@@ -4346,6 +4388,26 @@
   "when_not": "Small-scale, low-risk agile iterations where lightweight user stories and acceptance tests provide adequate shared understanding with acceptable risk. In lightweight informal prototyping spikes where visual models replace formal document logs. For tiny, single-developer projects where informal backlogs or sticky notes provide sufficient persistent memory without administrative burden.",
   "outputs": "SRS document / repository Requirements Specification document (Introduction, Functional model, Data model, Catalogue, Glossary) and Requirements Catalogue entries. Software Requirements Specification (SRS), Vision & Scope Document, System Requirements Specification (SyRS), Requirements Management (RM) Tool Database.",
   "decisions": "Scope, acceptance, release baseline, compliance, architecture. Requirements baselining, scope sign-off, solution verification, audit compliance. Baseline selection, impact analysis, regulatory audit compliance, artifact reuse."
+ },
+ {
+  "id": "consolidated-solution-design-document",
+  "name": "Consolidated Solution Design Document",
+  "task": "T5",
+  "task_name": "Requirements Specification",
+  "subtask": "5.6",
+  "subtask_name": "Requirements Documents and Phrasing",
+  "aliases": [],
+  "variants": 1,
+  "path": "references/methods/consolidated-solution-design-document.md",
+  "phases": [
+   "specification",
+   "validation"
+  ],
+  "problem": "Gives stakeholders one review-ready document instead of scattered analysis outputs, and prevents the rework and approval delays caused by insufficient detail, weak traceability and undocumented assumptions, by assembling the solution design in a fixed section order with explicit reviewer expectations for each section.",
+  "uncertainty": "",
+  "when_not": "A pure requirements hand-off where the delivery team designs the solution (use Requirements Specification Templates (SRS) or PEGS Standard Plan instead); a small change that fits a one-page specification; discovery work with no agreed scope yet.",
+  "outputs": "Consolidated solution design document with these sections, each marked complete, partial (with reason) or n/a (with reason): 1 Business context; 2 Scope; 3 Current state; 4 Solution overview; 5 Operating model (ownership, governance, support); 6 Future-state processes; 7 Functional design (requirement-to-function mapping); 8 Application design; 9 Configuration design; 10 Environments and release path; 11 Data design and migration; 12 Integration design; 13 Security and controls; 14 Reporting and analytics; 15 User experience and adoption; 16 Non-functional requirements; 17 Test traceability; 18 Deployment and hypercare; 19 Risks, assumptions and dependencies. Plus a section-to-source map and a list of open items that block sign-off.",
+  "decisions": "Design sign-off, build start, hand-off to a delivery team or vendor, go-live readiness, scope and risk acceptance."
  },
  {
   "id": "requirements-engineering-process-end-to-end",

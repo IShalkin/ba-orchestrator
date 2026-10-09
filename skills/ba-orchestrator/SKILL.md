@@ -1,6 +1,6 @@
 ---
 name: ba-orchestrator
-description: Orchestrates business-analysis work as multi-agent workflows. Routes a BA request to one of 8 task workflows (strategy and business case, situation investigation and elicitation, stakeholders, modelling, requirements specification, prioritisation and requirements management, validation and acceptance, change and benefits) or 5 end-to-end scenarios (initiative discovery, feature specification, business case and solution selection, requirements quality audit, process improvement). Picks methods from 256 method cards and fans out ba-researcher, ba-method-executor, ba-synthesizer and ba-critic subagents to search project sources (Confluence, Jira, SharePoint, GitHub, files, transcripts, whiteboards via MCP), produce evidence-backed artifacts and review them. Use when the user asks for BA analysis, discovery, requirements, a business case, a requirements review, stakeholder analysis or process redesign.
+description: Orchestrates business-analysis work as multi-agent workflows. Routes a BA request to one of 8 task workflows (strategy and business case, situation investigation and elicitation, stakeholders, modelling, requirements specification, prioritisation and requirements management, validation and acceptance, change and benefits) or 5 end-to-end scenarios (initiative discovery, feature specification, business case and solution selection, requirements quality audit, process improvement). Picks methods from 259 method cards and fans out ba-researcher, ba-method-executor, ba-synthesizer and ba-critic subagents to search project sources (Confluence, Jira, SharePoint, GitHub, files, transcripts, whiteboards via MCP), produce evidence-backed artifacts and review them. Use when the user asks for BA analysis, discovery, requirements, a business case, a requirements review, stakeholder analysis or process redesign.
 ---
 
 # BA Orchestrator
@@ -12,7 +12,7 @@ You are the **orchestrator**. You plan, dispatch subagents, verify, gate and pac
 ### 0. Intake → `00-intake/brief.md`
 - **Resume first.** If this request continues an earlier run (or `ba-runs/<run>/status.json` exists for it), run `RS reconcile <RUN_DIR>`. Follow run-protocol §6, and continue from the recorded phase. Do not start a second run.
 - **Otherwise**, create `ba-runs/<YYYYMMDD-HHMM>-<slug>/` and run `RS init <RUN_DIR> --depth <light|standard|deep>`. This sets the budget and records the skill version.
-- **Write the brief** from the template at the end of this file. Ask the user only for what is missing **and** would change the plan: the decision or goal, the scope, the sources in reach (which MCP servers or paths), and the depth. Infer the rest as `[ASSUMPTION]`.
+- **Write the brief** from the template at the end of this file. Ask the user only for what is missing **and** would change the plan: the decision or goal, the scope, the sources in reach (which MCP servers or paths), the depth, and the deliverable format (separate artifacts, or one assembled document). Infer the rest as `[ASSUMPTION]`.
 - **No sources:** if none are reachable, say so and use brief-only mode (run-protocol §9).
 
 ### 1. Route and plan → `01-plan/plan.md` (`RS phase <RUN_DIR> PLAN`)
@@ -47,9 +47,16 @@ Per wave:
    - ERROR: run `RS set … failed --note …` and relaunch once with the errors.
    - OK: run `RS set … done`.
 5. At the end of the wave, run `RS verify-writes`. At a workflow gate, run `RS phase <RUN_DIR> AWAIT_GATE` and ask the user.
+6. **Expectations at gates.** If the run has an expectations log (`client-expectations-capture-and-management`), show the user at every gate the expectations that are unconfirmed, changed, or outside the scope, and ask whether each still holds. Record the answers as a revision of that artifact. An expectation becomes a requirement only through change control, never at a gate.
 
 ### 4. Synthesize → `04-synthesis/` (`RS phase <RUN_DIR> SYNTHESIZE`)
 Run one `ba-synthesizer` (key `S1`). With more than 12 artifacts, run a partial synthesizer per wave, then a final one (run-protocol §8).
+
+### 4b. Assemble → `03-artifacts/<template-id>/` (only when the brief asks for one document)
+1. `RS phase <RUN_DIR> EXECUTE --wave <n>` with the next wave number, then `RS snapshot`.
+2. Register and launch **one** executor on the template card the workflow names: `consolidated-solution-design-document` for requirements plus solution design, or `requirements-specification-templates-srs` / `pegs-standard-plan` for requirements only.
+3. Its inputs are the brief, every `done` artifact, and the synthesis outputs (`traceability.csv`, `open-questions.md`, `assumptions.md`, `conflicts.md`). The document goes in a companion `document.md` linked from the artifact's Output section. It references artifacts instead of re-writing them, and marks every section complete, partial or n/a, with a reason.
+4. `CA artifact` as usual. In the review loop the document gets its own critic, which checks each section against the card's Quality Criteria.
 
 ### 5. Review loop → `05-review/` (`RS phase <RUN_DIR> REVIEW`)
 1. Launch `ba-critic` agents in parallel: one per artifact, or key artifacts only at light depth. Run `CA review <path>` on each review.
@@ -60,7 +67,7 @@ Run one `ba-synthesizer` (key `S1`). With more than 12 artifacts, run a partial 
 
 ### 6. Package → `06-final/README.md` (`RS phase <RUN_DIR> PACKAGE`)
 The README contains:
-- the deliverables index (with links) and a summary of 5–10 lines;
+- the assembled document first (when step 4b ran), then the deliverables index (with links) and a summary of 5–10 lines;
 - the decisions supported and their status;
 - the top open questions and gaps;
 - the evidence coverage (how many claims are `[E:]` versus `[ASSUMPTION]`);
@@ -75,6 +82,7 @@ Then run `RS terminal <RUN_DIR> <state> --reason "…"` (run-protocol §2) and r
 |---|---|
 | "New idea / initiative, what is the real problem, who is involved?" | `references/workflows/E1-initiative-discovery.md` |
 | "Write requirements / stories / spec for feature X" (scope agreed) | `references/workflows/E2-feature-specification.md` |
+| "Write the solution design / design document for sign-off or hand-off" (scope agreed) | `references/workflows/E2-feature-specification.md`, with wave 6 on `consolidated-solution-design-document` |
 | "Should we invest? Build or buy? Which vendor? Business case" | `references/workflows/E3-business-case-and-solution-selection.md` |
 | "Review / audit this spec or backlog. Is it ready?" | `references/workflows/E4-requirements-quality-audit.md` |
 | "This process is slow or broken, redesign it" | `references/workflows/E5-process-improvement.md` |
@@ -103,7 +111,7 @@ Then run `RS terminal <RUN_DIR> <state> --reason "…"` (run-protocol §2) and r
 
 | Path | Use |
 |---|---|
-| `references/taxonomy.md` | Tree of the 8 tasks → 43 subtasks → 256 methods, with links |
+| `references/taxonomy.md` | Tree of the 8 tasks → 43 subtasks → 259 methods, with links |
 | `references/tasks/T*.md` | Per-task selection guide: one line per method, "solves … / not for …" |
 | `references/methods/<id>.md` | Method cards: all source variants, 16 fields (`references/method-template.md`) |
 | `references/workflows/*.md` | Wave plans, default methods, switch rules, research seeds, gates |
@@ -127,6 +135,7 @@ Context: <org, product, domain, constraints, deadline>
 Stakeholders known (roles): <...>
 Sources: <source system or path — reachable? — notes>   (or "none: brief-only mode")
 Depth: light | standard | deep    Budget overrides (optional): max agents <n>, max waves <n>
+Deliverable format: separate artifacts | assembled document (requirements only | requirements and solution design)
 Output language: <language for artifacts>
 Assumptions made at intake: <list, each [ASSUMPTION]>
 ```

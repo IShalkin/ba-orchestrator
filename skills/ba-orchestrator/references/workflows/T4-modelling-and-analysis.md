@@ -10,7 +10,7 @@
 ### Wave 1 — Structure (parallel; choose only what the purpose needs)
 | Subtask | Default method | Switch to … when … |
 |---|---|---|
-| 4.1 Process | `business-process-modelling-bpmn-swimlanes` (as-is) | `business-event-analysis` first when triggers are unclear; `activity-diagrams` for detailed task logic; `task-analysis-and-task-descriptions` or `tasks-and-support` for user work at domain level; `business-use-case-buc-analysis` and `brown-cow-model` to separate essence from current implementation |
+| 4.1 Process | `business-process-modelling-bpmn-swimlanes` (as-is) | `process-hierarchy-process-design-and-end-to-end-scenarios` when the scope spans a whole business area or many interlinked processes (it builds the hierarchy first, then one design per process, then end-to-end scenarios; BPMN stays the notation inside each process design); `business-event-analysis` first when triggers are unclear; `activity-diagrams` for detailed task logic; `task-analysis-and-task-descriptions` or `tasks-and-support` for user work at domain level; `business-use-case-buc-analysis` and `brown-cow-model` to separate essence from current implementation |
 | 4.2 Data | `entity-relationship-and-data-modelling` | `concept-modelling-and-business-concept-mapping` when vocabulary conflicts dominate; `class-modelling` for OO designs; `data-flow-diagrams` for data transformations; `decision-driven-analytics-requirements` or `report-specification` for BI and reporting |
 | 4.4 Goals | `goal-modelling-kaos-gore` | `rationale-and-assumptions-modelling` when gold-plating or lost rationale is the risk; `goal-domain-tracing-qfd` to check business-goal coverage |
 
@@ -38,6 +38,7 @@
 - Every model element traces to `[E:]` evidence or is marked `[ASSUMPTION]`.
 - As-is and to-be models are kept separate and labelled.
 - The CRUD cross-check results (orphan entities, missing events) go to the synthesizer as gaps.
+- When the process hierarchy is used: its coverage matrix orphans (processes in no scenario, scenario steps with no process) go to the synthesizer as gaps.
 
 ## Hand-offs
 Models → WF-T5 (use cases, rules, NFRs derive from them), WF-T7 (model-based validation). Glossary → every later artifact.

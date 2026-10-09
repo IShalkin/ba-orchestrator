@@ -23,6 +23,7 @@
 | Subtask | Default method | Switch to … when … |
 |---|---|---|
 | 3.3 Plan | `stakeholder-management-planning` | — |
+| 3.3 Expectations (when there is a client or sponsor whose satisfaction is at stake) | `client-expectations-capture-and-management` | — (skip for internal work with a single known stakeholder) |
 | 3.3 Conflict (only if conflicts were found) | `conflict-management-and-resolution` | `principled-negotiation` for interest-based bargaining; `thomas-kilmann-conflict-mode-instrument` to choose a conflict style; `six-thinking-hats` or `consider-all-facts-caf` for structured group deliberation; `outcome-frame` to move from blame to outcomes |
 
 ## Research questions (seed)
@@ -35,6 +36,7 @@
 - The register lists **roles**. Personal names appear only when they are quoted from sources, with an `[E:]` label.
 - Every high-power stakeholder has an engagement action.
 - Conflicts are recorded with both positions and their evidence. The register does not take sides.
+- Expectations stay in the expectations log. None of them is turned into a requirement here; that happens only through change control (WF-T6).
 
 ## Hand-offs
-The register → WF-T2 (who to interview), WF-T6 (who prioritises and approves changes), WF-T8 (change impact by group).
+The register → WF-T2 (who to interview), WF-T6 (who prioritises and approves changes), WF-T8 (change impact by group). The expectations log → every later gate (SKILL.md, "Expectations at gates").
