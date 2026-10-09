@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.tmp
+ba-runs/
+.snapshots/
+.DS_Store
+Thumbs.db

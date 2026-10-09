@@ -1,0 +1,66 @@
+# NotebookLM Mind Map (7) — Business Analysis Methods and Techniques
+
+Источник: `NotebookLM Mind Map (7).png` (5479×10938 px). Расшифровка дословная.
+Узлов: 61 = корень 1 + категорий 4 + подкатегорий 12 + листьев 44.
+
+- **Business Analysis Methods and Techniques**
+  - **Core Concepts and Frameworks**
+    - **Business Analysis Core Concept Model (BACCM)**
+      - Change: Act of transformation
+      - Need: Problem or opportunity
+      - Solution: Specific way of satisfying needs
+      - Stakeholder: Group or individual with relationship
+      - Value: Worth, importance, or usefulness
+      - Context: Circumstances influencing the change
+    - **Business Analysis Service Framework (BASF)**
+      - Portfolio of business analysis services
+      - Alignment with organizational context
+    - **POPIT Model**
+      - People element
+      - Organisation element
+      - Process element
+      - Information element
+      - Technology element
+  - **Requirements Engineering Methods**
+    - **Requirements Development Activities**
+      - Elicitation: Drawing forth and discovering needs
+      - Analysis: Assessing details, value, and feasibility
+      - Specification: Representing requirements knowledge
+      - Validation: Confirming correctness and readiness
+    - **Requirements Classification**
+      - Business requirements: Goals and objectives
+      - Stakeholder requirements: Bridge between business and solution
+      - Solution requirements: Capabilities and qualities
+      - Transition requirements: Temporary migration conditions
+    - **Management and Traceability**
+      - Requirements traceability matrix: Depicting logical links
+      - Change control and version baselining
+  - **Elicitation and Investigation Methods**
+    - **Interaction Techniques**
+      - Interviews: Structured and unstructured questioning
+      - Workshops: Group gathering for direction and scope
+      - Focus groups: Exploring ideas and attitudes
+      - Brainstorming: Generating ideas collaboratively
+    - **Artefact-Driven Techniques**
+      - Document analysis: Reviewing existing assets
+      - Prototyping: Building simulations and wireframes
+      - Scenario analysis: Exploring user interactions
+      - Questionnaires and surveys: Polling large groups
+    - **Observation Techniques**
+      - Active and passive observation
+      - Shadowing: Witnessing work performance
+  - **Modelling and Analysis Methods**
+    - **Process Modelling**
+      - Business process modelling (BPMN / Swimlanes)
+      - Business activity modelling (BAM)
+      - Value chain and value stream analysis
+    - **Data and System Modelling**
+      - Data flow diagrams
+      - Data modelling and dictionaries
+      - Use case diagrams and scenarios
+      - Class and entity-relationship modelling
+    - **Strategic and Gap Analysis**
+      - SWOT analysis
+      - PESTLE analysis
+      - Porter's Five Forces analysis
+      - Gap analysis: Examining as-is and to-be differences
