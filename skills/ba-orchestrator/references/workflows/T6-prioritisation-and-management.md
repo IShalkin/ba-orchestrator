@@ -18,7 +18,7 @@
 |---|---|---|
 | 6.2 Plan | `product-backlog-management` | `dependency-stream-analysis` for large models with dependencies |
 | 6.3 Baseline | `requirements-baselines-and-version-control` | `requirements-organisation-and-management` for large unstructured sets; `requirements-reuse` across products; `unified-pegs-lifecycle` or `development-case-customization` to tailor the process |
-| 6.4 Trace | `requirements-traceability` | `requirements-status-tracking` and `issue-and-item-tracking` when status reporting is unreliable |
+| 6.4 Trace | `requirements-traceability`, with the fixed `trace.csv` columns (run-protocol §8); split by capability when large and merge with `merge_trace.py` | `requirements-status-tracking` and `issue-and-item-tracking` when status reporting is unreliable |
 
 ### Wave 3 — Control change (needs wave 2)
 | Subtask | Default method | Switch to … when … |
@@ -38,4 +38,4 @@
 - Impact analysis covers requirements, design, code, tests, documentation, schedule and cost. Unknown items are marked `[GAP]`.
 
 ## Hand-offs
-The baseline → WF-T7 (validation against the baseline). The change procedure → WF-T8 (deployment governance).
+The baseline → WF-T7 (validation against the baseline). The change procedure → WF-T8 (deployment governance). Once a baseline exists, a weekly or ad-hoc re-check against changed sources → WF-R1, whose drift report comes back to wave 3 (6.5) as change requests.

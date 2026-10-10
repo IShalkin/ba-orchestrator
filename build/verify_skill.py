@@ -83,6 +83,40 @@ for term in ("completed_with_defects", "budget_exhausted", "reconcile", "verify-
     if term not in rp:
         fails.append(f"run-protocol missing {term}")
 
+# 6. Workflow templates: present, meta first with name/description, and parse under node when available
+import shutil, tempfile
+node = shutil.which("node")
+shared = {}  # the shared block (pool, retry, paths, fixed brief lines) must stay byte-identical across templates
+for t in ("research.js", "execute-wave.js", "review.js", "synthesize.js"):
+    p = SKILL / "scripts" / "workflows" / t
+    if not p.exists():
+        fails.append(f"workflow template {t} missing")
+        continue
+    src = p.read_text(encoding="utf-8")
+    blk = re.search(r"^// Shared block:.*?^const VISUAL = [^\n]*$", src, re.M | re.S)
+    shared[t] = blk.group(0) if blk else None
+    meta = src.split("\n}", 1)[0]
+    if not src.startswith("export const meta = {") or not re.search(r"^\s*name:", meta, re.M) \
+            or not re.search(r"^\s*description:", meta, re.M):
+        fails.append(f"workflow template {t}: must start with 'export const meta = {{' carrying name and description")
+    status = "node absent, syntax not checked"
+    if node:
+        # the body runs in an async context with a top-level return, so wrap it before checking
+        with tempfile.TemporaryDirectory() as d:
+            m = Path(d) / (p.stem + ".mjs")
+            m.write_text("const __wf = async () => {\n" + src.replace("export const meta", "const meta", 1) + "\n}\n",
+                         encoding="utf-8")
+            r = subprocess.run([node, "--check", str(m)], capture_output=True, text=True)
+        status = "node --check ok" if r.returncode == 0 else "node --check FAILED"
+        if r.returncode:
+            err = [l for l in r.stderr.splitlines() if "Error" in l] or ["syntax error"]
+            fails.append(f"workflow template {t}: {err[0].strip()}")
+    print(f"6) scripts/workflows/{t}: {status}")
+
+if None in shared.values() or len(set(shared.values())) > 1:
+    fails.append(f"workflow templates: the shared block differs or is missing ({sorted(k for k, v in shared.items() if v != shared.get('research.js'))})")
+print(f"6) shared block identical in {len(shared)} templates: {None not in shared.values() and len(set(shared.values())) == 1}")
+
 print("RESULT:", "PASS" if not fails else f"FAIL ({len(fails)})")
 for f in fails:
     print("  ", f)

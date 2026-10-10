@@ -7,7 +7,7 @@
 ## Waves
 | Wave | Executors (parallel inside a wave) | Depends on |
 |---|---|---|
-| 1 | `requirements-quality-verification-and-analysis` · `glossary` (extract terms and find conflicts) · `requirements-traceability` (reverse-engineer from what exists) | research |
+| 1 | `requirements-quality-verification-and-analysis` · `glossary` (extract terms and find conflicts) · `requirements-traceability` (reverse-engineer from what exists; fixed `trace.csv` columns, run-protocol §8; split by capability and merged with `merge_trace.py` when large) | research |
 | 2 | `perspective-based-reading` ×3 (user / developer / tester scope suffixes) · `structured-4-pass-specification-review` | 1 |
 | 3 | `non-functional-requirements-analysis` (coverage check, not authoring) · `acceptance-and-fit-criteria` (coverage check) · `crud-matrix` (when data and functions can be cross-referenced) | 1 |
 | 4 | synthesizer: merge the defects, deduplicate, rank, and draft the fix plan | 2, 3 |
@@ -16,4 +16,4 @@ Waves 2 and 3 run in parallel; both depend only on wave 1.
 
 ## Gates
 - Audit executors **do not rewrite** the audited specification. They report defects with anchors (document, section, requirement id).
-- At the end: show the fix plan to the user. Fixing is a separate WF-T5 run, and only if the user asks for it.
+- At the end: show the fix plan to the user. Fixing is a separate WF-T5 run, and only if the user asks for it. A later re-check against changed sources is WF-R1, with this run as the baseline.

@@ -8,7 +8,10 @@ Usage:
 
 Checks the formats in references/artifact-conventions.md. For artifacts it also checks that every
 [E:id] exists in the run's research logs, that linked companion files exist, and that the Summary
-stays within budget. Exit 0 = conforms (warnings may print), 1 = errors.
+stays within budget (WARN above 300 words, ERROR above 360). Exit 0 = conforms (warnings may print),
+1 = errors. An error tagged FORM-ONLY (Summary over the limit, a missing artifact heading other than Summary
+and Output) needs only that fix on relaunch; the result line says FAIL FORM-ONLY when every error is
+form-only. A missing or empty Summary or Output is a content error: the executor did not finish.
 It checks form and evidence references only, NOT whether the content is right; that is the critic's job.
 """
 import argparse, re, sys
@@ -26,7 +29,12 @@ LABELS = {"E": EID, "ASSUMPTION": re.compile(r"\[ASSUMPTION\]"), "GAP": re.compi
 ART_SECTIONS = ["Summary", "Purpose and decision supported", "Procedure log", "Output", "Assumptions",
                 "Open questions", "Self-check"]
 ART_KEYS = ["method", "scope", "source_variant", "inputs", "status"]
-SUMMARY_MAX_WORDS = 300
+SUMMARY_MAX_WORDS = 300  # above this: WARN
+SUMMARY_HARD_MAX_WORDS = 360  # above this: ERROR
+CONTENT_SECTIONS = ("Summary", "Output")  # written last by an executor: missing or empty = unfinished, not form
+# a research question left unanswered, in any spelling: the researcher stopped early and is relaunched
+UNSEARCHED = re.compile(r"GAP:\s*not\s+(?:yet\s+)?searched|needs\s+staging", re.I)
+FORM = "FORM-ONLY "  # prefix of an error a relaunch fixes without new content
 
 
 def headings(text):
@@ -60,13 +68,18 @@ def check_artifact(path, run_dir):
                 err.append(f"frontmatter key missing: {k}")
     hs = headings(text)
     for s in ART_SECTIONS:
-        if not any(h.startswith(s) for h in hs):
-            err.append(f"section missing: ## {s}")
+        if s in CONTENT_SECTIONS:
+            if not section(text, s).strip():
+                err.append(f"section missing or empty: ## {s} (the executor did not finish; relaunch for content)")
+        elif not any(h.startswith(s) for h in hs):
+            err.append(f"{FORM}section missing: ## {s}")
     if hs and not hs[0].startswith("Summary"):
         warn.append("## Summary should be the first section")
     words = len(section(text, "Summary").split())
-    if words > SUMMARY_MAX_WORDS:
-        err.append(f"Summary has {words} words (max {SUMMARY_MAX_WORDS})")
+    if words > SUMMARY_HARD_MAX_WORDS:
+        err.append(f"{FORM}Summary has {words} words (max {SUMMARY_MAX_WORDS}, hard limit {SUMMARY_HARD_MAX_WORDS})")
+    elif words > SUMMARY_MAX_WORDS:
+        warn.append(f"Summary has {words} words (target {SUMMARY_MAX_WORDS}, hard limit {SUMMARY_HARD_MAX_WORDS})")
     counts = {k: len(p.findall(text)) for k, p in LABELS.items()}
     if sum(counts.values()) == 0:
         err.append("no evidence labels at all")
@@ -93,6 +106,10 @@ def check_research(path):
             err.append(f"section missing: ## {s}")
     if not re.search(r"^Sources searched:", text, re.M):
         err.append("line missing: Sources searched:")
+    unsearched = sorted({m.group(0) for m in UNSEARCHED.finditer(text)})
+    if unsearched:
+        err.append(f"{len(UNSEARCHED.findall(text))} unanswered marker(s) {unsearched} left: the researcher "
+                   "stopped early or a source needs staging; stage it if needed and relaunch with PREVIOUS LOG")
     ids = evidence_ids(text)
     dup = sorted({i for i in ids if ids.count(i) > 1})
     if dup:
@@ -127,6 +144,8 @@ def main():
     ap.add_argument("--run-dir")
     a = ap.parse_args()
     p = Path(a.path)
+    if a.kind == "artifact" and p.is_dir():
+        p = p / "artifact.md"  # an executor is registered on its directory
     if not p.exists():
         print(f"ERROR file not found: {p}")
         sys.exit(1)
@@ -141,7 +160,8 @@ def main():
         print("WARN ", w)
     for e in err:
         print("ERROR", e)
-    print(f"{'FAIL' if err else 'OK'} {a.kind} {p.name} {info}")
+    result = "OK" if not err else "FAIL FORM-ONLY" if all(e.startswith(FORM) for e in err) else "FAIL"
+    print(f"{result} {a.kind} {p.name} {info} warnings={len(warn)}")
     sys.exit(1 if err else 0)
 
 
