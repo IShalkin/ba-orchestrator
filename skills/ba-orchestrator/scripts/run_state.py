@@ -42,7 +42,7 @@ Exit codes: 0 ok, 2 usage/state error, 3 budget exhausted, 4 duplicate assignmen
 6 reconcile found inconsistencies.
 """
 import argparse, hashlib, json, math, posixpath, re, sys, time
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 for stream in (sys.stdout, sys.stderr):
     try:
@@ -97,7 +97,7 @@ def save(run, st, event=None):
 
 def skipped(rel, skip):
     """skip entries are exact paths, or directory prefixes ending in '/'."""
-    return "__pycache__" in rel or any(rel == s or (s.endswith("/") and rel.startswith(s)) for s in skip)
+    return "__pycache__" in rel.split("/") or any(rel == s or (s.endswith("/") and rel.startswith(s)) for s in skip)
 
 
 def tree_hash(root, skip=()):
@@ -209,7 +209,9 @@ def cmd_add(a):
     if unknown:
         die(2, f"--depends-on: unknown agent key(s) {unknown}; register them first")
     out = posixpath.normpath(Path(a.output).as_posix())
-    if posixpath.isabs(out) or out == "." or ".." in out.split("/") or ".." in Path(a.output).as_posix().split("/"):
+    win = PureWindowsPath(a.output)  # host-independent: `C:/x`, `C:x`, `\\server\share` and `\x` escape RUN_DIR on Windows
+    if (posixpath.isabs(out) or win.anchor or out == "." or ".." in out.split("/")
+            or ".." in Path(a.output).as_posix().split("/") or ".." in win.parts):
         die(2, f"--output {a.output!r} must be a path relative to RUN_DIR without '..'")
     for x in st["agents"]:
         o = x["output"]
@@ -374,8 +376,11 @@ def cmd_verify_writes(a):
     allowed = [x["output"] for x in owners if x["wave"] == snap["wave"] or x["key"] in relaunched]
 
     def owner(c):  # the longest registered output containing c: a final synthesizer does not own wave-<n>/
+        # a failed owner outside this wave yields, since `add` lets a later agent register over a failed output;
+        # a failed partial synthesizer does not: its wave-<n>/ is never the final synthesizer's to write
         hits = [x for x in owners if c == x["output"] or c.startswith(x["output"] + "/")]
-        return max(hits, key=lambda x: len(x["output"]), default=None)
+        keeps = lambda x: x["state"] != "failed" or x["role"] == "synthesizer" or x["output"] in allowed
+        return max(hits, key=lambda x: (keeps(x), len(x["output"])), default=None)
 
     run_changes = changed(snap["run"], file_hashes(a.run, skip=RUN_SKIP))
     skill_changes = changed(snap["skill"], file_hashes(snap["skill_dir"]))

@@ -49,7 +49,8 @@ def make_pptx(path):
                    '</p:spTree></p:cSld></p:sld>')
         z.writestr("ppt/slides/slide3.xml", f'<p:sld {P} show="0"><p:cSld><p:spTree>{sp("Secret plan")}'
                    '</p:spTree></p:cSld></p:sld>')
-        z.writestr("ppt/slides/slide2.xml", f'<p:sld {P}><p:cSld><p:spTree>{sp("Last slide")}</p:spTree></p:cSld></p:sld>')
+        z.writestr("ppt/slides/slide2.xml", f'<p:sld {P}><p:cSld><p:spTree>{sp("Last slide")}'
+                   f'{sp("Line one</a:t></a:r><a:br/><a:r><a:t>Line two")}</p:spTree></p:cSld></p:sld>')
         z.writestr("ppt/slides/_rels/slide1.xml.rels", rels(("rId9", "notesSlide", "../notesSlides/notesSlide1.xml")))
         z.writestr("ppt/notesSlides/notesSlide1.xml", f'<p:notes {P}><p:cSld><p:spTree>{sp("1", "sldNum")}'
                    f'{sp("Say this aloud", "body")}</p:spTree></p:cSld></p:notes>')
@@ -71,6 +72,7 @@ class DeckTest(unittest.TestCase):
             self.assertIn("Secret plan", s2)
             self.assertIn("- hidden: no", s3)
             self.assertIn("Last slide", s3)
+            self.assertIn("Line one\nLine two", s3)  # <a:br> separates the runs
             self.assertIn("hidden: [2]", r.stdout)
             self.assertIn("slide-003.md", r.stdout)
             self.assertIn("slide shapes only", s1)
@@ -86,12 +88,28 @@ class DeckTest(unittest.TestCase):
         pdf = b"%PDF-1.4\n1 0 obj<</Type /Pages /Count 2>>endobj\n2 0 obj<</Type /Page>>endobj\n" \
               b"3 0 obj<</Type/Page>>endobj\n%%EOF\n"
         self.assertEqual(mod.pdf_page_count(pdf), 2)
+        import zlib
+        content = zlib.compress(b"BT (/Type /Page) Tj ET")  # page text holding the literal is not a page
+        objstm = zlib.compress(b"1 0 2 20 <</Type /Page>> <</Type /Page>>")
+        pdf2 = (b"%PDF-1.5\n4 0 obj<</Length 9>>stream\n" + content + b"\nendstream\nendobj\n"
+                b"5 0 obj<</Type /ObjStm /N 2>>stream\n" + objstm + b"\nendstream\nendobj\n"
+                b"6 0 obj<</Length 9>>stream\n/Type /Page\nendstream\nendobj\n%%EOF\n")
+        self.assertEqual(mod.pdf_page_count(pdf2), 2)
+        raw = b"%PDF-1.5\n5 0 obj<</Type /ObjStm /N 2>>stream\n1 0 2 20 <</Type /Page>> <</Type /Page>>\nendstream\nendobj\n"
+        self.assertEqual(mod.pdf_page_count(raw), 2)  # an uncompressed object stream is scanned as it is
         with tempfile.TemporaryDirectory() as tmp:
             deck, fake = Path(tmp) / "d.pptx", Path(tmp) / "x.pdf"
             make_pptx(deck)
             fake.write_bytes(pdf)
             r = run("stage_deck.py", deck, Path(tmp) / "out", "--pdf", fake)
             self.assertEqual(r.returncode, 1, r.stdout)  # 3 slides, 2 pages (or an unrenderable fake PDF)
+            env = dict(os.environ, PATH=tmp)  # no soffice/libreoffice on PATH
+            r = run("stage_deck.py", deck, Path(tmp) / "out2", "--render", "libreoffice", env=env)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("no renderer available", r.stderr)
+            self.assertFalse((Path(tmp) / "out2").exists())  # nothing written, so the advised retry can reuse it
+            r = run("stage_deck.py", deck, Path(tmp) / "out2", "--render", "none")
+            self.assertEqual(r.returncode, 0, r.stderr)
 
 
 class WhiteboardTest(unittest.TestCase):
@@ -102,7 +120,8 @@ class WhiteboardTest(unittest.TestCase):
             {"id": "n1", "type": "sticky note", "x": 10, "y": 20, "width": 50, "height": 50, "parentId": "grp",
              "text": "", "htmlText": "<p>Order &amp; pay</p>", "createdBy": {"name": "Ann"}, "createdOn": 1700000000000,
              "style": {"backgroundColor": "#ffcc00"}},
-            {"id": "n2", "type": "sticky note", "x": 400, "y": 300, "width": 50, "height": 50, "text": "Ship"},
+            {"id": "n2", "type": "sticky note", "x": 400, "y": 300, "width": 50, "height": 50, "text": "Ship",
+             "style": {"backgroundColor": "red;background-image:url(http://x/y)"}},
             {"id": "c1", "type": "arrow", "startRefId": "n1", "endRefId": "n2", "label": {"labels": [{"text": "then"}]}},
         ]}
         with tempfile.TemporaryDirectory() as tmp:
@@ -120,17 +139,25 @@ class WhiteboardTest(unittest.TestCase):
             self.assertIn('CONNECTS n1 <-> n2 (connector c1, arrow) label "then"', md)
             html = (Path(tmp) / "out" / "board" / "board.html").read_text(encoding="utf-8")
             self.assertIn("<polyline", html)
+            self.assertIn("background:#ffcc00", html)
+            self.assertNotIn("url(", html)  # a colour outside the grammar never reaches the style
             self.assertIn("board.html", r.stdout)
 
     def test_items_without_id_fail(self):
         with tempfile.TemporaryDirectory() as tmp:
             src = Path(tmp) / "b.json"
-            src.write_text(json.dumps([{"widgetId": "a", "x": 1}, {"id": "p", "children": [{"id": "c"}]}]), encoding="utf-8")
+            src.write_text(json.dumps([{"widgetId": "a", "x": 1}, {"widgetId": "b", "x": 2}]), encoding="utf-8")
             r = run("stage_whiteboard.py", src, Path(tmp) / "out")
             self.assertEqual(r.returncode, 1)
             self.assertIn("2 item(s) not listed", r.stderr)
-            r = run("stage_whiteboard.py", src, Path(tmp) / "out2", "--map", "id=widgetId")
-            self.assertIn("1 item(s) not listed", r.stderr)  # the nested child is still counted
+            self.assertFalse((Path(tmp) / "out").exists())  # nothing written, so a retry can reuse the folder
+            r = run("stage_whiteboard.py", src, Path(tmp) / "out", "--map", "id=widgetId")
+            self.assertEqual(r.returncode, 0, r.stderr)  # the advised retry, same folder, succeeds
+            self.assertIn("| b ", (Path(tmp) / "out" / "b" / "widgets.md").read_text(encoding="utf-8"))
+            src.write_text(json.dumps([{"id": "p", "children": [{"id": "c"}]}]), encoding="utf-8")
+            r = run("stage_whiteboard.py", src, Path(tmp) / "out3")
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("1 item(s) not listed", r.stderr)  # a nested child is counted, not walked
 
 
 def make_xlsx(path):
@@ -140,14 +167,14 @@ def make_xlsx(path):
         z.writestr("xl/_rels/workbook.xml.rels", rels(("rId1", "worksheet", "worksheets/sheet1.xml"),
                    ("rId2", "worksheet", "/xl/worksheets/sheet2.xml")))
         z.writestr("xl/sharedStrings.xml", f'<sst {S}><si><t>id</t></si><si><r><t>tit</t></r><r><t>le</t></r></si>'
-                   '<si><t>a|b</t></si></sst>')
+                   '<si><t>a|b</t></si><si><t>c\\|d</t></si></sst>')
         z.writestr("xl/worksheets/sheet1.xml", f'<worksheet {S}><dimension ref="A1:C2"/><sheetData>'
                    '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>'
                    '<row r="2"><c r="A2"><v>42</v></c><c r="B2" t="s"><v>2</v></c><c r="C2" t="b"><v>1</v></c>'
-                   '<c r="D2"><f>A2*2</f></c></row>'
+                   '<c r="D2"><f>A2*2</f></c></row><row r="3"><c r="A3" t="s"><v>3</v></c></row>'
                    '</sheetData></worksheet>')
         z.writestr("xl/worksheets/sheet2.xml", f'<worksheet {S}><sheetData><row r="3"><c r="B3" t="inlineStr">'
-                   '<is><t>inline</t></is></c></row></sheetData></worksheet>')
+                   '<is><t>inline</t><rPh sb="0" eb="1"><t>PHON</t></rPh></is></c></row></sheetData></worksheet>')
 
 
 class SheetTest(unittest.TestCase):
@@ -163,7 +190,10 @@ class SheetTest(unittest.TestCase):
             self.assertIn("| 1 | id | title |  |", s1)
             self.assertIn("| 2 | 42 | a\\|b | TRUE | =A2*2 |", s1)  # no cached value: the formula is kept
             self.assertIn("- state: hidden", s2)
-            self.assertIn("| 3 |  | inline |", s2)
+            self.assertIn("| 3 |  | inline |", s2)  # the phonetic run is not cell text
+            self.assertIn("| 3 | c\\\\\\|d |", s1)  # c\|d: the backslash is escaped, so the pipe stays escaped
+        for script in ("stage_tracker.py", "stage_whiteboard.py"):  # the same table-cell escape, two more copies
+            self.assertEqual(load(script).cell("c\\|d"), "c\\\\\\|d", script)
 
 
 def write_csv(path, rows):
@@ -221,7 +251,8 @@ class MergeTraceTest(unittest.TestCase):
             t = Path(tmp)
             write_csv(t / "a.csv", [head, row("FR-1", "ABC-1", "Full"), row("FR-2", "ABC-10...ABC-12", "FULL")])
             write_csv(t / "b.csv", [head, row("FR-1", "ABC-2", "none"), row("FR-3", "ABC-20-22", "partial"),
-                                    row("FR-4", "ABC-30 through ABC-31", "none"), row("FR-5", "ABC-40, ABC-41 and ABC-42", "full")])
+                                    row("FR-4", "ABC-30 through ABC-31", "none"), row("FR-5", "ABC-40, ABC-41 and ABC-42", "full"),
+                                    row("FR-6", "ABC-50..52 through XYZ-1", "none")])
             sums = []
             for order in ((t / "a.csv", t / "b.csv"), (t / "b.csv", t / "a.csv")):
                 r = run("merge_trace.py", t / "out", "--trace", *order)
@@ -231,19 +262,23 @@ class MergeTraceTest(unittest.TestCase):
                 s.pop("inputs")
             self.assertEqual(sums[0], sums[1])  # the input order changes nothing
             s = sums[0]
-            self.assertEqual(s["coverage_totals"], {"full": 2, "none": 2, "partial": 1})  # FR-1 counts as none
+            self.assertEqual(s["coverage_totals"], {"full": 2, "none": 3, "partial": 1})  # FR-1 counts as none
             self.assertEqual(sorted(e["range"] for e in s["range_errors"]),
-                             ["ABC-10...ABC-12", "ABC-20-22", "ABC-30 through ABC-31"])
+                             ["ABC-10...ABC-12", "ABC-20-22", "ABC-30 through ABC-31", "ABC-50..52 through XYZ-1"])
             write_csv(t / "c.csv", [head, row("FR-1", "ABC-1", "full"), row("FR-9", "ABC-9", "none")])
             r = run("merge_trace.py", t / "out2", "--trace", t / "c.csv", "--baseline", t / "out" / "coverage-summary.json")
             self.assertEqual(r.returncode, 0, r.stderr)
             d = json.loads((t / "out2" / "coverage-summary.json").read_text(encoding="utf-8"))["drift"]
             self.assertEqual(d["changed"], [{"req_id": "FR-1", "from": "none", "to": "full"}])
-            self.assertEqual((d["added"], d["removed"]), (["FR-9"], ["FR-2", "FR-3", "FR-4", "FR-5"]))
+            self.assertEqual((d["added"], d["removed"]), (["FR-9"], ["FR-2", "FR-3", "FR-4", "FR-5", "FR-6"]))
             write_csv(t / "d.csv", [head, row("FR-1", "ABC-1", "covered")])
             r = run("merge_trace.py", t / "out3", "--trace", t / "d.csv")
             self.assertEqual(r.returncode, 1)
             self.assertIn("covered", r.stderr)
+            write_csv(t / "e.csv", [head, row("FR-1", "ABC-1", "full")[:-1] + ["two\nlines"], row("", "ABC-2", "none")])
+            r = run("merge_trace.py", t / "out4", "--trace", t / "e.csv")
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("e.csv:4: empty req_id", r.stderr)  # physical line 4: the record above spans two
 
     def test_missing_column_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -271,11 +306,15 @@ class Stub(BaseHTTPRequestHandler):
             return
         if u.path.endswith("/bad"):
             body, ctype = b"<html>login</html>", "text/html"
+        elif u.path.endswith("/emptypage"):
+            body, ctype = b'{"startAt": 0, "total": 3, "issues": []}', "application/json"
+        elif u.path.endswith("/noissues"):
+            body, ctype = b'{"errorMessages": ["gateway"]}', "application/json"
         else:
             q = parse_qs(u.query)
             start, size = int(q["startAt"][0]), int(q["maxResults"][0])
             body = json.dumps({"startAt": start, "total": 3, "issues": self.ISSUES[start:start + size]}).encode()
-            ctype = "application/json;charset=UTF-8"
+            ctype = "Application/JSON;charset=UTF-8" if u.path.endswith("/upper") else "application/json;charset=UTF-8"
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.end_headers()
@@ -330,12 +369,21 @@ class TrackerTest(unittest.TestCase):
             r = self.tracker(Path(tmp), "--api-path", "/bad")
             self.assertEqual(r.returncode, 1)
             self.assertIn("non-JSON", r.stderr)
+            r = self.tracker(Path(tmp), "--api-path", "/noissues")
+            self.assertEqual(r.returncode, 1)  # a JSON error body is not an empty search
+            self.assertIn("no 'issues' list", r.stderr)
+            r = self.tracker(Path(tmp), "--api-path", "/emptypage")
+            self.assertEqual(r.returncode, 1)  # an empty page short of total is an incomplete export
+            self.assertIn("short of total", r.stderr)
             self.assertEqual(self.tracker(Path(tmp), token="").returncode, 2)
             env = dict(os.environ, TRK_TOKEN="t")
             r = run("stage_tracker.py", tmp, "--base-url", self.base, "--jql", "x", "--token-env", "TRK_TOKEN",
                     "--ac-field", "none", env=env)  # no --allow-http
             self.assertEqual(r.returncode, 2)
             self.assertIn("https", r.stderr)
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self.tracker(Path(tmp), "--api-path", "/upper")
+            self.assertEqual(r.returncode, 0, r.stderr)  # media types are case-insensitive
 
     def test_refuses_cross_origin_redirect_and_non_empty_out(self):
         other = HTTPServer(("127.0.0.1", 0), Stub)

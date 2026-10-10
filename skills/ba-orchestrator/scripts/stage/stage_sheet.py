@@ -46,18 +46,20 @@ def shared_strings(z):
     if "xl/sharedStrings.xml" not in z.namelist():
         return []
     root = ET.fromstring(z.read("xl/sharedStrings.xml"))
-    out = []
-    for si in root.findall(M + "si"):
-        skip = {t for ph in si.findall(M + "rPh") for t in ph.iter(M + "t")}
-        out.append("".join(t.text or "" for t in si.iter(M + "t") if t not in skip))
-    return out
+    return [rich_text(si) for si in root.findall(M + "si")]
+
+
+def rich_text(si):
+    """Text of a shared or inline string, without phonetic (rPh) readings."""
+    skip = {t for ph in si.findall(M + "rPh") for t in ph.iter(M + "t")}
+    return "".join(t.text or "" for t in si.iter(M + "t") if t not in skip)
 
 
 def cell_value(c, sst):
     t, v = c.get("t", "n"), c.find(M + "v")
     if t == "inlineStr":
         is_ = c.find(M + "is")
-        return "".join(x.text or "" for x in is_.iter(M + "t")) if is_ is not None else ""
+        return rich_text(is_) if is_ is not None else ""
     if v is None or v.text is None:
         f = c.find(M + "f")  # a workbook not last saved by a spreadsheet app may carry no cached value
         return f"={f.text}" if f is not None and f.text else ""
@@ -79,7 +81,7 @@ def sheets(z):
 
 
 def cell(v):
-    return v.replace("|", "\\|").replace("\r\n", "<br>").replace("\n", "<br>")
+    return v.replace("\\", "\\\\").replace("|", "\\|").replace("\r\n", "<br>").replace("\n", "<br>")
 
 
 def sheet_md(z, name, state, part, sst):

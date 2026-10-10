@@ -32,8 +32,10 @@ ART_KEYS = ["method", "scope", "source_variant", "inputs", "status"]
 SUMMARY_MAX_WORDS = 300  # above this: WARN
 SUMMARY_HARD_MAX_WORDS = 360  # above this: ERROR
 CONTENT_SECTIONS = ("Summary", "Output")  # written last by an executor: missing or empty = unfinished, not form
-# a research question left unanswered, in any spelling: the researcher stopped early and is relaunched
-UNSEARCHED = re.compile(r"GAP:\s*not\s+(?:yet\s+)?searched|needs\s+staging", re.I)
+# a research question or source left unanswered, in any spelling (`GAP: not yet searched`, `[GAP] not searched`,
+# a bare `needs staging`): the researcher stopped early and is relaunched. In an Evidence row only the quote cell is
+# skipped, since it is verbatim source text; every other cell, and anything after the table, counts.
+UNSEARCHED = re.compile(r"GAP\W*not\s+(?:yet\s+)?searched|needs\s+staging", re.I)
 FORM = "FORM-ONLY "  # prefix of an error a relaunch fixes without new content
 
 
@@ -106,9 +108,17 @@ def check_research(path):
             err.append(f"section missing: ## {s}")
     if not re.search(r"^Sources searched:", text, re.M):
         err.append("line missing: Sources searched:")
-    unsearched = sorted({m.group(0) for m in UNSEARCHED.finditer(text)})
+    rows = {l for l in section(text, "Evidence").splitlines() if l.lstrip().startswith("|")}
+
+    def scanned(l):  # an Evidence row is scanned without its quote cell (5th), which is verbatim source text
+        if l not in rows:
+            return l
+        cells = l.strip().strip("|").split("|")
+        return "|".join(cells[:4] + cells[5:])
+    hits = UNSEARCHED.findall("\n".join(scanned(l) for l in text.splitlines()))
+    unsearched = sorted(set(hits))
     if unsearched:
-        err.append(f"{len(UNSEARCHED.findall(text))} unanswered marker(s) {unsearched} left: the researcher "
+        err.append(f"{len(hits)} unanswered marker(s) {unsearched} left: the researcher "
                    "stopped early or a source needs staging; stage it if needed and relaunch with PREVIOUS LOG")
     ids = evidence_ids(text)
     dup = sorted({i for i in ids if ids.count(i) > 1})

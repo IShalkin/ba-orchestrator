@@ -5,7 +5,7 @@
 Fixes from a deep field run (19 researchers, 11 executors, 11 critics; many sources were diagrams and slide decks):
 
 - **Source staging.** Researchers have no shell, so the orchestrator now stages binary and visual sources before the research wave: slide and page renders including hidden slides (with a slide-count versus page-count check), per-slide text layers with speaker notes, whiteboard widget listings with coordinates, authors, dates and connections, wiki exports, a deterministic issue-tracker export, and spreadsheets as markdown. Large downloads go to disk, and each download is checked for size and type (`source-access.md` §4, SKILL.md step 2).
-- **Write early.** Researchers write their log skeleton before the first search and rewrite it every 8–10 tool calls, so an agent that hits `maxTurns` no longer loses all its work. `check_artifact.py research` fails a log that still carries `GAP: not yet searched` (in any spelling or case) or `needs staging`, so a capped researcher, or one waiting for a staged source, is not marked done, and a relaunch continues its partial log (`PREVIOUS LOG`) instead of overwriting it.
+- **Write early.** Researchers write their log skeleton before the first search and rewrite it every 8–10 tool calls, so an agent that hits `maxTurns` no longer loses all its work. `check_artifact.py research` fails a log that still carries `GAP: not yet searched` (in the common spellings and any case, `[GAP] not searched` included) or `needs staging` anywhere except the quote cell of an Evidence row (verbatim source text), so a capped researcher, or one waiting for a staged source, is not marked done, and a relaunch continues its partial log (`PREVIOUS LOG`) instead of overwriting it.
 - **Per-agent size caps.** At most about 50 images and 150 KB of text per agent; larger scopes are split, one researcher per slice. A context-limit failure is a mechanical failure: split and relaunch.
 - **`run_state.py budget`** raises a limit (agents, waves, revisions, attempts) after explicit user approval and logs the reason and approver, so a budget is never raised by editing `status.json`. Empty reasons and approvers are refused, and `show` prints every raise. The approver is recorded, not verified (`hardening.md` §4).
 - **Executor output is a directory.** Executors are registered on `03-artifacts/<method-id>[--<scope>]`, so `verify-writes` no longer flags their companion files. `add` refuses a file path for an executor or synthesizer and an output nested inside another live output; `reconcile` requires `artifact.md` inside an executor's directory; `check_artifact.py artifact` accepts the directory.
@@ -22,6 +22,15 @@ Fixes from a deep field run (19 researchers, 11 executors, 11 critics; many sour
 - **Format errors graded.** A Summary of 301–360 words is a WARN with no relaunch; a relaunch for form-only errors (`FAIL FORM-ONLY`: Summary over 360 words, a missing heading other than Summary and Output) asks only for the form fix, and still counts as a launch. A missing or empty Summary or Output is a content error (run-protocol §5). The templates take the error text in a per-item `errors` field.
 - **Staging safeguards.** The tracker export refuses `http://` without `--allow-http` and any redirect to another origin, so the token stays with the named server. Decks, sheets, whiteboards and tracker exports refuse a non-empty output folder, so versions never mix. The whiteboard script fails when items have no id; formulas with no cached value are kept as `=<formula>`. `merge_trace.py` counts a duplicated requirement by its lowest coverage whatever the input order, refuses coverage values outside the schema, and lists ambiguous key separators as range errors.
 - **Tests.** `build/test_run_state.py`, `build/test_check_artifact.py` and `build/test_stage.py` cover the budget raise, directory outputs, overlapping registrations, verify-writes, reconcile, the stale cascade, the unfinished-log and form-only checks, and the staging scripts. `build/verify_skill.py` checks that the four templates' shared block is identical.
+
+
+### Known issues (not fixed in 0.3.0)
+
+- Cancelling an executor in `revise` or `failed` clears the completion block while its artifact stays on disk; `terminal completed` then passes. Remove or quarantine the artifact by hand before `completed`.
+- A replacement agent that regenerates a cancelled stale agent's output does not clear its STALE line, so such a run can only end `completed_with_defects`.
+- `stage_deck.py` leaves partial files in OUT when a present renderer fails, so the advised `--render none` retry needs a fresh OUT.
+- `synthesize.js` in final mode renders an empty artifact list as blank text instead of falling back to all of `03-artifacts`; `absList` keeps null entries.
+- Marker spellings such as `GAP: not yet read` or `staging needed` are not caught by `check_artifact.py research`.
 
 ## 0.2.0
 

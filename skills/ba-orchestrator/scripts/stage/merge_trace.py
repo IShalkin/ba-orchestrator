@@ -13,7 +13,8 @@ Keys in jira_keys are expanded: "ABC-10..ABC-20", "ABC-10..20", "ABC-10–ABC-20
 listed under range_errors. Other keys are found by pattern; between two keys only a list separator (comma,
 semicolon, slash, "&", "and", whitespace) is accepted, and anything else ("...", a dash, "through") or a
 stray number after a key ("ABC-10-12") is listed under range_errors, not guessed.
-coverage is case-insensitive and must be full, partial or none; any other value fails the merge (exit 1).
+coverage is case-insensitive and must be full, partial or none; any other value, or an empty req_id on a
+non-blank row, fails the merge (exit 1). line is the physical line where the record starts.
 A catalogue is a CSV with a req_id (or id) column, else its first column is used.
 issues.json is a list of issues (or {"issues": [...]}) as written by stage_tracker.py.
 
@@ -25,7 +26,7 @@ the expanded keys) and OUT_DIR/coverage-summary.json:
   issues.json, issues not referenced by any requirement (excluded statuses dropped), by status, and the
   counted coverage per req_id. With --baseline (an earlier coverage-summary.json), also "drift": req_ids
   whose coverage changed (from, to), req_ids added and req_ids removed (refresh runs, workflow R1).
-Exit 0 = merged, 1 = unreadable input, missing column or a coverage value outside the schema.
+Exit 0 = merged, 1 = unreadable input, missing column, empty req_id or a coverage value outside the schema.
 """
 import argparse, csv, json, re, sys
 from collections import Counter, defaultdict
@@ -59,26 +60,32 @@ def expand(cell, errors, where):
         if p2 != p or hi < lo or hi - lo > MAX_SPAN:
             errors.append({"where": where, "range": m.group(0), "reason":
                            "prefix differs" if p2 != p else "reversed" if hi < lo else f"span over {MAX_SPAN}"})
-            return " "
+            return " \0 "
         keys.extend(f"{p}-{n}" for n in range(lo, hi + 1))
-        return " "
+        return " \0 "
 
-    rest = RANGE.sub(sub, cell or "")
-    found = list(re.finditer(KEY, rest))
+    # a range stays in the text as a \0 token, so the separators around it are validated like a key's
+    rest = RANGE.sub(sub, (cell or "").replace("\0", ""))
+    found = list(re.finditer(KEY + "|\0", rest))
     gaps = [rest[x.end():y.start()] for x, y in zip(found, found[1:])]
     tail = rest[found[-1].end():] if found else ""
     if any(not LIST_SEP.match(g) for g in gaps) or re.search(r"\d", tail):
         errors.append({"where": where, "range": cell, "reason": "separator is not a list or a range form"})
-    keys += [f"{m.group(1).upper()}-{m.group(2)}" for m in found]
+    keys += [f"{m.group(1).upper()}-{m.group(2)}" for m in found if m.group(1)]
     return list(dict.fromkeys(keys))
 
 
 def read_csv(path):
+    """Header, then (physical line where the record starts, record): a quoted cell can span lines."""
+    rows, start = [], 1
     with open(path, newline="", encoding="utf-8-sig") as f:
-        rows = list(csv.reader(f))
+        reader = csv.reader(f)
+        for r in reader:
+            rows.append((start, r))
+            start = reader.line_num + 1
     if not rows:
         raise ValueError(f"{path}: empty")
-    return [norm(h) for h in rows[0]], rows[1:]
+    return [norm(h) for h in rows[0][1]], rows[1:]
 
 
 def read_trace(path):
@@ -87,10 +94,12 @@ def read_trace(path):
     if missing:
         raise ValueError(f"{path}: missing column(s) {', '.join(missing)} (header: {head})")
     out = []
-    for line, r in enumerate(body, 2):
+    for line, r in body:
         if not any(x.strip() for x in r):
             continue
         d = {c: (r[head.index(c)] if head.index(c) < len(r) else "").strip() for c in SCHEMA}
+        if not d["req_id"]:  # blank ids would collapse into one requirement and count as measured coverage
+            raise ValueError(f"{path}:{line}: empty req_id")
         d["coverage"] = d["coverage"].lower()
         if d["coverage"] not in COVERAGE:
             raise ValueError(f"{path}:{line}: coverage {d['coverage']!r} is not one of {', '.join(COVERAGE)}")
@@ -102,7 +111,7 @@ def read_trace(path):
 def read_catalogue(path):
     head, body = read_csv(path)
     col = head.index("req_id") if "req_id" in head else head.index("id") if "id" in head else 0
-    return [(r[col].strip(), str(path), line) for line, r in enumerate(body, 2) if len(r) > col and r[col].strip()]
+    return [(r[col].strip(), str(path), line) for line, r in body if len(r) > col and r[col].strip()]
 
 
 def main():

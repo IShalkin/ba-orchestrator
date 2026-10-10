@@ -6,7 +6,7 @@ Run by the orchestrator, never by a subagent, between waves (`source-access.md` 
 |---|---|---|
 | `stage_deck.py DECK.pptx OUT` | slide deck | in `OUT/<stem>/`: per slide `slide-NNN.md` (hidden flag, slide-shape text, speaker notes), `deck.pdf` and `slide-NNN.png`, hidden slides included |
 | `stage_whiteboard.py WIDGETS.json OUT [--name N]` | whiteboard widget export | in `OUT/<stem or N>/`: `widgets.md` (absolute coordinates, authors, dates, text, connections), `board.html` |
-| `stage_tracker.py OUT --base-url URL --jql JQL --token-env VAR --ac-field F` | Jira-compatible REST API v2 | `issues.json`, `index.md`, `bodies-NNN.md` (parts of at most 400 KB) |
+| `stage_tracker.py OUT --base-url URL --jql JQL --token-env VAR --ac-field F` | Jira-compatible REST API v2 | `issues.json`, `index.md`, `bodies-NNN.md` (parts of about 400 KB; one issue larger than that stays whole) |
 | `stage_sheet.py BOOK.xlsx OUT` | workbook | in `OUT/<stem>/`: `NN-<sheet>.md` per sheet, with its visible or hidden state |
 | `merge_trace.py OUT --trace A.csv B.csv [--catalogue C.csv] [--issues issues.json] [--baseline OLD.json]` | split executors' `trace.csv` | `trace-merged.csv`, `coverage-summary.json` (pass as `MEASURED COUNTS`; with `--baseline` it adds the drift against an earlier summary) |
 

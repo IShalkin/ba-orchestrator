@@ -35,6 +35,7 @@ NS = {"p": "http://schemas.openxmlformats.org/presentationml/2006/main",
       "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
       "rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
 RID = "{%s}id" % NS["r"]
+T, BR = "{%s}t" % NS["a"], "{%s}br" % NS["a"]
 
 
 class StageError(Exception):
@@ -58,7 +59,8 @@ def rels(z, part):
 def paragraphs(elem):
     out = []
     for para in elem.iter("{%s}p" % NS["a"]):
-        t = "".join(x.text or "" for x in para.iter("{%s}t" % NS["a"])).strip()
+        # <a:br> is a line break between runs; a tab is already a "\t" inside <a:t> (<a:tab> is a tab STOP)
+        t = "".join("\n" if x.tag == BR else x.text or "" for x in para.iter() if x.tag in (T, BR)).strip()
         if t:
             out.append(t)
     return out
@@ -100,14 +102,19 @@ def slide_md(s, deck):
 
 
 def pdf_page_count(data):
-    """Count /Type /Page objects, including those inside compressed object streams."""
+    """Count /Type /Page objects outside streams, plus those inside object streams (/ObjStm, Flate or uncompressed).
+    Other stream payloads (page content, fonts, images) are never scanned: their bytes can hold the literal."""
     pat = re.compile(rb"/Type\s*/Page(?![a-zA-Z])")
-    n = len(pat.findall(data))
-    for m in re.finditer(rb"stream\r?\n(.*?)\r?\nendstream", data, re.S):
+    stream = re.compile(rb"stream\r?\n(.*?)\r?\nendstream", re.S)
+    n = len(pat.findall(stream.sub(b"", data)))
+    for m in stream.finditer(data):
+        if b"/ObjStm" not in data[data.rfind(b"obj", 0, m.start()):m.start()]:
+            continue
         try:
-            n += len(pat.findall(zlib.decompress(m.group(1))))
-        except zlib.error:
-            pass
+            body = zlib.decompress(m.group(1))
+        except zlib.error:  # an uncompressed (or non-Flate) object stream: scan the payload as it is
+            body = m.group(1)
+        n += len(pat.findall(body))
     return n
 
 
@@ -117,10 +124,17 @@ def check_counts(slides, pages, what="page"):
                          "An export can drop hidden slides; do not stage this render.")
 
 
+def renderer_available(name):
+    if name == "libreoffice":
+        return bool(shutil.which("soffice") or shutil.which("libreoffice"))
+    return sys.platform == "darwin" and bool(shutil.which("osascript")) and (
+        Path("/Applications/Microsoft PowerPoint.app").exists())
+
+
 def render_libreoffice(deck, out_pdf):
-    exe = shutil.which("soffice") or shutil.which("libreoffice")
-    if not exe:
+    if not renderer_available("libreoffice"):
         return False
+    exe = shutil.which("soffice") or shutil.which("libreoffice")
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / ("deck" + deck.suffix)
         shutil.copyfile(deck, src)
@@ -152,8 +166,7 @@ end run'''
 
 
 def render_powerpoint(deck, out_pdf):
-    if sys.platform != "darwin" or not shutil.which("osascript") or not (
-            Path("/Applications/Microsoft PowerPoint.app").exists()):
+    if not renderer_available("powerpoint"):
         return False
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / ("deck" + deck.suffix)  # a copy: the source is never opened, so never saved
@@ -206,6 +219,10 @@ def main():
     out = a.out_dir / a.deck.stem
     if out.exists() and any(out.iterdir()):
         sys.exit(f"ERROR: {out} is not empty; staging into it would mix versions. Remove it or choose another OUT_DIR")
+    order = [] if a.pdf or a.render == "none" else ["libreoffice", "powerpoint"] if a.render == "auto" else [a.render]
+    if order and not any(map(renderer_available, order)):  # before anything is written, so the advised retry works
+        sys.exit(f"ERROR: no renderer available ({' or '.join(order)}); install LibreOffice, or pass "
+                 "--pdf with an export that includes hidden slides, or --render none")
     out.mkdir(parents=True, exist_ok=True)
     written = []
     for s in slides:
@@ -222,7 +239,6 @@ def main():
         elif a.render == "none":
             pdf = None
         else:
-            order = ["libreoffice", "powerpoint"] if a.render == "auto" else [a.render]
             fn = {"libreoffice": render_libreoffice, "powerpoint": render_powerpoint}
             if not any(fn[r](a.deck, pdf) for r in order):
                 raise StageError(f"no renderer available ({' or '.join(order)}); install LibreOffice, or pass "

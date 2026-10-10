@@ -16,15 +16,19 @@
 |---|---|---|
 | 0 | researchers on the changed sources only | staging |
 | 1 | `requirements-traceability`, one per capability scope of the baseline, against the baseline catalogues, each writing `trace.csv` with the fixed columns (run-protocol §8) · `requirements-quality-verification-and-analysis` on the changed or new issues | research |
-| 2 | orchestrator, by script: `merge_trace.py OUT --trace <new trace.csv files> --baseline <baseline>/…/coverage-summary.json` writes the new `coverage-summary.json` with a `drift` section (coverage changed from → to, requirements added, removed) | 1 |
-| 3 | `change-impact-analysis` for each drift item that changes coverage or scope | 2 |
+| 2 | orchestrator, by script: `merge_trace.py OUT --trace <new trace.csv files> --issues <current issues.json> --baseline <baseline>/…/coverage-summary.json` writes the new `coverage-summary.json`. Its `drift` section diffs requirement coverage only (coverage changed from → to, requirement ids added, removed); it does not diff capability, scope, issue status or conflicts | 1 |
+| 3 | `change-impact-analysis` for each `drift` item, and for each re-scoped or re-labelled issue the wave 1 quality executor reported (scope drift is not in the script diff, so it arrives only that way) | 2 |
 | 4 | synthesizer with both coverage summaries as `MEASURED COUNTS`: the drift report | 3 |
 
-## Drift report (in the synthesis, counts from the wave 2 diff only)
-- Requirements whose coverage changed (from → to), with the issues that caused it.
-- Issues added, cancelled or closed, and re-labelled or re-scoped since the baseline.
-- New issues that reference no baseline requirement.
-- Conflicts opened and conflicts closed.
+## Drift report (in the synthesis)
+Measured by script, counts used as given:
+- Requirements whose coverage changed (from → to), added or removed: the wave 2 `drift` section, with the issues that caused each change.
+- Current issues that reference no baseline requirement: `unreferenced_issues` in the new summary.
+- Current conflict rows: `conflict_rows` in the new summary.
+
+Reported by executors, with evidence, and labelled as not script-measured (no script diffs these against the baseline):
+- Issues cancelled, closed, re-labelled or re-scoped since the baseline.
+- Conflicts opened and conflicts closed, by comparing the current `conflict_rows` with the baseline's.
 - Candidate new requirements, each marked for change control.
 
 ## Gates

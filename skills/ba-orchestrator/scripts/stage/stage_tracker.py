@@ -16,7 +16,8 @@ OUT_DIR must be absent or empty, so a re-export never mixes with older parts.
 
 Writes OUT_DIR/issues.json (raw issues, sorted by key), OUT_DIR/index.md (status and type counts, then one
 row per issue: key, type, status, epic, labels, sprint, assignee, summary) and OUT_DIR/bodies-NNN.md
-(description, acceptance criteria and links per issue, parts of at most --part-kb KB).
+(description, acceptance criteria and links per issue, parts of about --part-kb KB; an issue larger than
+that stays whole in its own part).
 Exit 0 = exported, 1 = HTTP, TLS or response failure, 2 = usage.
 """
 import argparse, base64, json, os, re, ssl, sys, urllib.error, urllib.parse, urllib.request
@@ -60,15 +61,19 @@ def fetch_all(a, headers, ctx):
         req = urllib.request.Request(url, headers=headers)
         with opener.open(req, timeout=120) as r:
             ctype, body = r.headers.get("Content-Type", ""), r.read()
-        if "json" not in ctype:
+        if "json" not in ctype.lower():  # media types are case-insensitive
             raise ValueError(f"non-JSON response ({ctype or 'no content type'}) at startAt={start}; "
                              f"a login or error page? First bytes: {body[:200]!r}")
         page = json.loads(body)
-        got = page.get("issues", [])
+        got = page.get("issues") if isinstance(page, dict) else None
+        if not isinstance(got, list):  # a 200 JSON error from a proxy must not read as "no issues"
+            raise ValueError(f"response at startAt={start} has no 'issues' list; first bytes: {body[:200]!r}")
         issues += got
         start += len(got)
         print(f"page startAt={page.get('startAt', start - len(got))}: {len(got)} issues, total {page.get('total')}")
         total = page.get("total")
+        if not got and total is not None and start < total:
+            raise ValueError(f"empty page at startAt={start}, short of total {total}; the export is incomplete")
         if not got or (total is not None and start >= total):
             return issues
 
@@ -139,7 +144,7 @@ def body(i, a):
 
 
 def cell(v):
-    return str(v).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
+    return str(v).replace("\\", "\\\\").replace("|", "\\|").replace("\r", " ").replace("\n", " ")
 
 
 def main():

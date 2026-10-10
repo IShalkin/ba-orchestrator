@@ -15,8 +15,8 @@ Field names: FIELDS below lists, per field, the dotted paths tried in order (lis
 "label.labels.0.text"). It covers the two common export shapes: flat (x, y, width, parentId, text, style.backgroundColor,
 startRefId) and nested (position.x, geometry.width, parent.id, data.content, startItem.id). Override with
 --map FIELD=PATH. Items with no id (under every path tried) and widgets nested in a "children" list are
-not listed: they are counted, and any such item fails the run (fix with --map id=PATH). OUT_DIR/<name>/
-must be absent or empty. Exit 0 = staged, 1 = unreadable input or skipped items.
+not listed: they are counted, and any such item fails the run before anything is written (fix with
+--map id=PATH). OUT_DIR/<name>/ must be absent or empty. Exit 0 = staged, 1 = unreadable input or skipped items.
 """
 import argparse, datetime, html, json, re, sys
 from collections import Counter
@@ -47,6 +47,9 @@ FIELDS = {
     "label": ["label.labels.0.text", "label.text", "label", "captions.0.content", "title"],
 }
 LIST_KEYS = ("value", "widgets", "data", "items")
+# a colour reaches a style attribute: only a hex, rgb()/rgba()/hsl()/hsla() or a bare name passes, so an export
+# cannot smuggle "red;background-image:url(...)" into board.html
+SAFE_COLOUR = re.compile(r"#[0-9a-fA-F]{3,8}|(?:rgb|hsl)a?\([0-9.,%\s/]*\)|[a-zA-Z]+")
 
 
 def get(w, path):
@@ -136,7 +139,7 @@ def is_connector(w):
 
 
 def cell(v):
-    return str(v).replace("|", "\\|").replace("\n", " ")
+    return str(v).replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ")
 
 
 def widgets_md(ws, name):
@@ -173,7 +176,7 @@ def board_html(ws, name):
     for w in sorted(boxes, key=lambda w: (w["width"] * w["height"] < 1, -w["width"] * w["height"], w["id"])):
         divs.append(f'<div class="w" title="{html.escape(w["id"] + " " + w["type"])}" style="left:{w["ax"] - x0 + 10:g}px;'
                     f'top:{w["ay"] - y0 + 10:g}px;width:{w["width"]:g}px;height:{w["height"]:g}px'
-                    + (f';background:{html.escape(w["colour"])}' if w["colour"] else "") + '">'
+                    + (f';background:{w["colour"]}' if SAFE_COLOUR.fullmatch(w["colour"]) else "") + '">'
                     f'{html.escape(w["text"])}</div>')
     for w in sorted((w for w in ws.values() if is_connector(w)), key=lambda w: w["id"]):
         a, b = ws.get(w["start"]), ws.get(w["end"])
@@ -212,6 +215,9 @@ def main():
     out = a.out_dir / name
     if out.exists() and any(out.iterdir()):
         sys.exit(f"ERROR: {out} is not empty; staging into it would mix versions. Remove it or choose another OUT_DIR")
+    if skipped:  # before anything is written, so a retry with --map can reuse the same folder
+        sys.exit(f"ERROR: {skipped} item(s) not listed (no id under the paths tried, or nested children); "
+                 "the listing would be incomplete. Add the export's id path with --map id=PATH")
     out.mkdir(parents=True, exist_ok=True)
     written = [out / "widgets.md", out / "board.html"]
     written[0].write_text(widgets_md(ws, name), encoding="utf-8")
@@ -219,9 +225,6 @@ def main():
     print(f"{len(ws)} widgets, {sum(map(is_connector, ws.values()))} connectors")
     for p in written:
         print(f"{p.stat().st_size:>10}  {p}")
-    if skipped:
-        sys.exit(f"ERROR: {skipped} item(s) not listed (no id under the paths tried, or nested children); "
-                 "the listing is incomplete. Add the export's id path with --map id=PATH")
 
 
 if __name__ == "__main__":

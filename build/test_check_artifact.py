@@ -74,13 +74,35 @@ class CheckArtifactTest(unittest.TestCase):
         body = ("Sources searched: wiki\n\n## Findings by research question\n### RQ1\n{m}\n\n## Evidence\n"
                 "| id | source | locator | date | quote |\n|---|---|---|---|---|\n")
         for m in ("GAP: not searched — turn cap", "GAP: Not yet searched", "[GAP: needs staging — deck.pptx]",
-                  "gap:  not  searched"):
+                  "gap:  not  searched", "[GAP] not yet searched — slides 51-120", "GAP - needs staging: board.json",
+                  "Sources unavailable: deck.pptx — binary, cannot read — needs staging"):
             with self.subTest(m):
                 r = self.research(body.format(m=m))
                 self.assertEqual(r.returncode, 1, r.stdout)
                 self.assertIn("unanswered marker", r.stdout)
         r = self.research(body.format(m="GAP: searched the wiki, nothing found"))  # control
         self.assertEqual(r.returncode, 0, r.stdout)
+        quoted = body.format(m="Found [E:R2-1].") + ("| R2-1 | wiki | p1 | 2026 | \"the deck needs staging; "
+                                                      "GAP: not yet searched\" |\n")
+        r = self.research(quoted)  # source text quoted verbatim in Evidence is not a marker
+        self.assertEqual(r.returncode, 0, r.stdout)
+        r = self.research(quoted.replace("## Evidence", "## Sources unavailable\n[GAP: needs staging — a.pdf]\n\n## Evidence"))
+        self.assertIn("unanswered marker", r.stdout)  # control: the same file with a real marker outside Evidence
+        for tail in ("\nImage cap reached; unread items:\n- [GAP: not yet searched — deck.pptx slides 51-120]\n",
+                     "\n### Sources unavailable\n- [GAP: needs staging — board.json]\n"):
+            with self.subTest(tail):  # an unread list after the table is inside ## Evidence but not a table row
+                r = self.research(quoted + tail)
+                self.assertEqual(r.returncode, 1, r.stdout)
+                self.assertIn("unanswered marker", r.stdout)
+        for m in ("GAP:     not yet searched", "**[GAP]:** not yet searched"):
+            with self.subTest(m):
+                self.assertEqual(self.research(body.format(m=m)).returncode, 1)
+        for row in ("| R7-98 | deck.pptx | slides 51-120 | GAP | needs staging: render to PNG |",
+                    "| R7-99 | deck.pptx | slides 51-120 | 2026 | GAP: not yet searched (image cap) |",
+                    "| R5-2 | deck.pptx (needs staging) | slide 3 | 2026 | \"Y\" |"):
+            with self.subTest(row):  # a marker in any cell of an Evidence row other than the quote counts
+                r = self.research(body.format(m="Found [E:R2-1].") + row + "\n")
+                self.assertEqual(r.returncode, 1, r.stdout)
         r = self.research(body.format(m="x").replace("## Evidence", "## Sources"))
         self.assertIn("FAIL research", r.stdout)  # a research or review section is content, never form-only
         self.assertNotIn("FORM-ONLY", r.stdout)

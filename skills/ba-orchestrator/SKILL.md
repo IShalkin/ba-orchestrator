@@ -40,7 +40,7 @@ You are the **orchestrator**. You plan, dispatch subagents, verify, gate and pac
 2. `RS snapshot <RUN_DIR>`.
 3. For each researcher: `RS add <RUN_DIR> R<n> --role researcher --output 02-research/R<n>.md --wave 0`.
 4. Launch `ba-researcher` agents, at most 5 at a time, using the brief from run-protocol §10. After each launch, run `RS set <RUN_DIR> R<n> running --task-id <id>`.
-5. When a researcher returns, run `CA research <path>` and then `RS set … done`, or `RS set … failed` and relaunch once. A researcher that stops with "input too long", hits its turn cap, or lists items as needing staging or unread, is a mechanical failure (`CA research` fails on a left-over `GAP: not yet searched`, in any spelling, and on `needs staging`): stage or split, then relaunch on the smaller slices, passing the partial log as `PREVIOUS LOG`.
+5. When a researcher returns, run `CA research <path>` and then `RS set … done`, or `RS set … failed` and relaunch once. A researcher that stops with "input too long", hits its turn cap, or leaves items unread or needing staging, is a mechanical failure. The researcher marks each such item `GAP: not yet searched` or `GAP: needs staging`, and `CA research` fails on either marker (e.g. `[GAP] not searched` or a bare `needs staging`, anywhere except the quote cell of an Evidence row). If a researcher's reply names unread items that its log does not mark, set it `failed` yourself. Stage or split, then relaunch on the smaller slices, passing the partial log as `PREVIOUS LOG`.
 6. When the wave is complete, run `RS verify-writes <RUN_DIR>`.
 
 Skip this phase in brief-only mode.

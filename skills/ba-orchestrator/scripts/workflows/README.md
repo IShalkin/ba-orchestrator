@@ -65,7 +65,7 @@ Workflow({scriptPath: '<skill dir>/scripts/workflows/execute-wave.js', args: {
 | Arg | Meaning |
 |---|---|
 | `critics[].key` | Item key |
-| `critics[].artifact_dir` | Directory name under `03-artifacts` (a path is reduced to its last segment) |
+| `critics[].artifact_dir` | Directory name under `03-artifacts` (a path is reduced to its last segment; one that names nothing, such as a bare `artifact.md`, refuses the whole run before any launch) |
 | `critics[].method` | Method id of the artifact's card |
 | `critics[].out` | File name under `05-review` (default `artifact_dir`; a path is reduced to its last segment) |
 | `critics[].focus` | Extra focus for the critic (text) |
@@ -89,7 +89,7 @@ Workflow({scriptPath: '<skill dir>/scripts/workflows/review.js', args: {
 | `key` | Item key; default `S-final` (final) or `S-w<wave>` (partial), so two syntheses never collide |
 | `mode` | `final` (default) or `partial` |
 | `wave` | Wave number; required for `partial`, names `04-synthesis/wave-<wave>/` |
-| `artifacts` | Path list of artifacts whose Summaries to read (default all of `03-artifacts`) |
+| `artifacts` | Path list of artifacts whose Summaries to read; required and non-empty for `partial` (an empty list or one of blanks is refused); for `final`, default all of `03-artifacts` |
 | `decisions` | Decisions the synthesis supports (text; default from the brief) |
 | `measuredCounts` | Path list of the count files computed by script (run-protocol §8) |
 | `retry` | `false` when no attempt or launch headroom is left |

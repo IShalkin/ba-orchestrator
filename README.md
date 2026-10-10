@@ -79,7 +79,7 @@ To continue an interrupted run, say "resume run `<name>`".
 
 Without connected sources, the skill runs in **brief-only mode**: everything is labelled as an assumption, and each artifact lists the elicitation questions to ask.
 
-**Dispatch modes.** When the Workflow tool is available, each wave runs as one Workflow invocation of a shipped template in `scripts/workflows/` (mode W, the default), with the run's values passed as `args`. Otherwise the orchestrator launches the same agents with the Agent tool, at most 5 at a time (mode A). The brief records the mode; staging, budgets, gates and verification are the same in both. In mode W the orchestrator still registers every agent before a wave and checks every output after it, and counts the one automatic retry a template makes when an agent dies on an infrastructure error.
+**Dispatch modes.** When the Workflow tool is available, each wave runs as one Workflow invocation of a shipped template in `scripts/workflows/` (mode W, the default), with the run's values passed as `args`. Otherwise the orchestrator launches the same agents with the Agent tool, at most 5 at a time (mode A). The brief records the mode; staging, budgets, gates and verification are the same in both. In mode W the orchestrator still registers every agent before a wave and checks every output after it, and counts the one automatic retry a template makes whenever `agent()` returns no result: an agent that died on an infrastructure error, or one the user skipped, which is therefore launched once more (set `retry: false` on the item to prevent that).
 
 ## How it stays controlled
 

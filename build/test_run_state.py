@@ -250,7 +250,8 @@ class RunStateTest(unittest.TestCase):
         self.assertIn("VIOLATION 04-synthesis/wave-1/synthesis.md", r.stdout)
 
     def test_output_path_spellings(self):
-        for out in ("/abs/03-artifacts/m1", "03-artifacts/zz/../m1", "../outside", "."):
+        for out in ("/abs/03-artifacts/m1", "03-artifacts/zz/../m1", "../outside", ".", "C:/outside", "C:outside",
+                    "c:\\outside", "\\\\server\\share\\m1", "\\abs", "03-artifacts\\..\\..\\outside"):
             with self.subTest(out):
                 r = rs("add", self.run, "E9", "--role", "executor", "--output", out)
                 self.assertEqual(r.returncode, 2, r.stderr)
@@ -338,6 +339,69 @@ class RunStateTest(unittest.TestCase):
             self.assertEqual(rs("set", self.run, "C1", s).returncode, 0)
         self.assertEqual(rs("stale", self.run).stdout, "")
         self.assertEqual(rs("terminal", self.run, "completed", "--reason", "x").returncode, 0)
+
+    def test_cancelling_a_stale_dependent_does_not_clear_it(self):
+        self.cascade()
+        for s in ("revise", "running", "done"):
+            rs("set", self.run, "E1", s)
+        rs("set", self.run, "C1", "revise")
+        self.assertEqual(rs("set", self.run, "C1", "cancelled").returncode, 0)
+        self.assertIn("STALE C1", rs("stale", self.run).stdout)  # its artifact is still on disk
+        self.assertIn("STALE C1", rs("show", self.run).stdout)
+        self.assertEqual(rs("reconcile", self.run).returncode, 6)
+        self.assertEqual(rs("terminal", self.run, "completed", "--reason", "x").returncode, 2)
+        r = rs("terminal", self.run, "completed_with_defects", "--reason", "C1 cancelled stale")
+        self.assertEqual(r.returncode, 0, r.stderr)  # the way out, with the stale line printed for the README
+        self.assertIn("STALE C1", r.stdout)
+
+    def test_failed_child_does_not_shadow_a_later_parent(self):
+        rs("add", self.run, "E1", "--role", "executor", "--output", "03-artifacts/m/sub", "--wave", 1)
+        for s in ("running", "failed"):
+            rs("set", self.run, "E1", s)
+        self.assertEqual(rs("add", self.run, "E2", "--role", "executor", "--output", "03-artifacts/m", "--wave", 2).returncode, 0)
+        rs("phase", self.run, "EXECUTE", "--wave", 2)
+        rs("snapshot", self.run)
+        rs("set", self.run, "E2", "running")
+        self.write("03-artifacts/m/sub/artifact.md")
+        r = rs("verify-writes", self.run)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_failed_agent_in_its_own_wave_still_owns_its_files(self):
+        rs("phase", self.run, "EXECUTE", "--wave", 2)
+        rs("add", self.run, "F", "--role", "executor", "--output", "03-artifacts/m/sub", "--wave", 2)
+        rs("snapshot", self.run)
+        rs("set", self.run, "F", "running")
+        self.write("03-artifacts/m/sub/artifact.md")
+        rs("set", self.run, "F", "failed")
+        # its replacement, registered over it before this wave is verified, does not take its files
+        self.assertEqual(rs("add", self.run, "P", "--role", "executor", "--output", "03-artifacts/m", "--wave", 3).returncode, 0)
+        r = rs("verify-writes", self.run)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_pycache_skipped_only_as_a_directory(self):
+        rs("phase", self.run, "EXECUTE", "--wave", 1)
+        rs("snapshot", self.run)
+        self.write("03-artifacts/x/__pycache__/a.pyc")
+        self.assertEqual(rs("verify-writes", self.run).returncode, 0)  # control: a cache directory is skipped
+        self.write("03-artifacts/other/notes__pycache__.md")
+        r = rs("verify-writes", self.run)
+        self.assertEqual(r.returncode, 5, r.stdout)
+        self.assertIn("VIOLATION 03-artifacts/other/notes__pycache__.md", r.stdout)
+
+    def test_failed_partial_synthesizer_keeps_its_wave_dir(self):
+        rs("add", self.run, "S1", "--role", "synthesizer", "--output", "04-synthesis/wave-1", "--wave", 1)
+        for s in ("running", "failed"):
+            rs("set", self.run, "S1", s)
+        rs("phase", self.run, "SYNTHESIZE", "--wave", 2)
+        self.assertEqual(rs("add", self.run, "SF", "--role", "synthesizer", "--output", "04-synthesis", "--wave", 2).returncode, 0)
+        rs("snapshot", self.run)
+        rs("set", self.run, "SF", "running")
+        self.write("04-synthesis/synthesis.md")
+        self.assertEqual(rs("verify-writes", self.run).returncode, 0)  # control: its own file
+        self.write("04-synthesis/wave-1/synthesis.md")
+        r = rs("verify-writes", self.run)
+        self.assertEqual(r.returncode, 5, r.stdout)
+        self.assertIn("VIOLATION 04-synthesis/wave-1/synthesis.md", r.stdout)
 
     def test_dependent_cannot_run_before_upstream_is_done(self):
         rs("add", self.run, "X1", "--role", "executor", "--output", "03-artifacts/x1")

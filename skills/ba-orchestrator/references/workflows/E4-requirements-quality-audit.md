@@ -7,7 +7,7 @@
 ## Waves
 | Wave | Executors (parallel inside a wave) | Depends on |
 |---|---|---|
-| 1 | `requirements-quality-verification-and-analysis` · `glossary` (extract terms and find conflicts) · `requirements-traceability` (reverse-engineer from what exists; fixed `trace.csv` columns, run-protocol §8; split by capability and merged with `merge_trace.py` when large) | research |
+| 1 | `requirements-quality-verification-and-analysis` · `glossary` (extract terms and find conflicts) · `requirements-traceability` (reverse-engineer from what exists; fixed `trace.csv` columns, run-protocol §8; split by capability when large; always merged by script with `merge_trace.py`, which writes the `coverage-summary.json` a later WF-R1 needs as its baseline) | research |
 | 2 | `perspective-based-reading` ×3 (user / developer / tester scope suffixes) · `structured-4-pass-specification-review` | 1 |
 | 3 | `non-functional-requirements-analysis` (coverage check, not authoring) · `acceptance-and-fit-criteria` (coverage check) · `crud-matrix` (when data and functions can be cross-referenced) | 1 |
 | 4 | synthesizer: merge the defects, deduplicate, rank, and draft the fix plan | 2, 3 |
