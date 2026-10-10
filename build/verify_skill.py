@@ -83,6 +83,97 @@ for term in ("completed_with_defects", "budget_exhausted", "reconcile", "verify-
     if term not in rp:
         fails.append(f"run-protocol missing {term}")
 
+# 6. Workflow templates: present, meta first with name/description, and parse under node when available
+import shutil, tempfile
+node = shutil.which("node")
+shared = {}  # the shared block (pool, retry, paths, fixed brief lines) must stay byte-identical across templates
+for t in ("research.js", "execute-wave.js", "review.js", "synthesize.js"):
+    p = SKILL / "scripts" / "workflows" / t
+    if not p.exists():
+        fails.append(f"workflow template {t} missing")
+        continue
+    src = p.read_text(encoding="utf-8")
+    blk = re.search(r"^// Shared block:.*?^const VISUAL = [^\n]*$", src, re.M | re.S)
+    shared[t] = blk.group(0) if blk else None
+    meta = src.split("\n}", 1)[0]
+    if not src.startswith("export const meta = {") or not re.search(r"^\s*name:", meta, re.M) \
+            or not re.search(r"^\s*description:", meta, re.M):
+        fails.append(f"workflow template {t}: must start with 'export const meta = {{' carrying name and description")
+    status = "node absent, syntax not checked"
+    if node:
+        # the body runs in an async context with a top-level return, so wrap it before checking
+        with tempfile.TemporaryDirectory() as d:
+            m = Path(d) / (p.stem + ".mjs")
+            m.write_text("const __wf = async () => {\n" + src.replace("export const meta", "const meta", 1) + "\n}\n",
+                         encoding="utf-8")
+            r = subprocess.run([node, "--check", str(m)], capture_output=True, text=True)
+        status = "node --check ok" if r.returncode == 0 else "node --check FAILED"
+        if r.returncode:
+            err = [l for l in r.stderr.splitlines() if "Error" in l] or ["syntax error"]
+            fails.append(f"workflow template {t}: {err[0].strip()}")
+    print(f"6) scripts/workflows/{t}: {status}")
+
+if None in shared.values() or len(set(shared.values())) > 1:
+    fails.append(f"workflow templates: the shared block differs or is missing ({sorted(k for k, v in shared.items() if v != shared.get('research.js'))})")
+print(f"6) shared block identical in {len(shared)} templates: {None not in shared.values() and len(set(shared.values())) == 1}")
+
+
+# 7. Templates run against a stub agent(): path handling and argument guards behave as documented
+def run_template(t, a):
+    """Run template t with args a and a stub agent(); returns (prompts, error message or None)."""
+    src = (SKILL / "scripts" / "workflows" / t).read_text(encoding="utf-8").replace("export const meta", "const meta", 1)
+    harness = ("const prompts = []\nconst agent = async p => { prompts.push(p); return 'ok' }\n"
+               "const log = () => {}, phase = () => {}\nconst args = JSON.parse(process.argv[2])\n"
+               "const __wf = async () => {\n" + src + "\n}\n"
+               "__wf().then(() => console.log(JSON.stringify({ prompts })),"
+               " e => console.log(JSON.stringify({ prompts, error: String(e.message) })))\n")
+    with tempfile.TemporaryDirectory() as d:
+        m = Path(d) / "run.mjs"
+        m.write_text(harness, encoding="utf-8")
+        r = subprocess.run([node, str(m), json.dumps(a)], capture_output=True, text=True)
+    out = json.loads(r.stdout or '{"prompts": [], "error": "no output"}')
+    return out["prompts"], out.get("error")
+
+
+if node:
+    unc, sk = r"\\server\share\run", "/skill"
+    checks = []
+    p, e = run_template("research.js", {"skillDir": sk, "runDir": unc, "researchers": [
+        {"id": "R1", "sources": "x", "questions": ["q"], "staged": ["notes, archived.png", "/abs/b.md"]}]})
+    checks.append(("UNC runDir accepted", e is None))
+    checks.append(("array entry with a comma kept whole",
+                   bool(p) and f"`{unc}/notes, archived.png`, `/abs/b.md`" in p[0]))
+    p, e = run_template("execute-wave.js", {"skillDir": sk, "runDir": "/run", "executors": [
+        {"key": "E1", "method": "m", "upstream": "a.md, /b.md"}]})
+    checks.append(("scalar list split on commas", bool(p) and "`/run/a.md`, `/b.md`" in p[0]))
+    p, e = run_template("review.js", {"skillDir": sk, "runDir": "/run", "critics": [
+        {"key": "C1", "method": "m", "artifact_dir": r"C:\run\03-artifacts\goal-model\artifact.md"}]})
+    checks.append(("Windows artifact path reduced to its directory",
+                   bool(p) and "/run/03-artifacts/goal-model/artifact.md" in p[0]))
+    p, e = run_template("synthesize.js", {"skillDir": sk, "runDir": "/run", "mode": "partial", "wave": 1})
+    checks.append(("partial synthesis without artifacts refused", not p and e is not None and "artifacts" in e))
+    p, e = run_template("synthesize.js", {"skillDir": sk, "runDir": "/run", "mode": "partial", "wave": 1,
+                                          "artifacts": ["goal-model"]})
+    checks.append(("partial synthesis with artifacts runs", len(p) == 1 and e is None))
+    for blank in ([" "], " , ", ","):
+        p, e = run_template("synthesize.js", {"skillDir": sk, "runDir": "/run", "mode": "partial", "wave": 1,
+                                              "artifacts": blank})
+        checks.append((f"partial synthesis with blank artifacts {blank!r} refused", not p and e is not None))
+    for bad in ("artifact.md", "", None):
+        p, e = run_template("review.js", {"skillDir": sk, "runDir": "/run", "critics": [
+            {"key": "C0", "method": "m", "artifact_dir": "ok"}, {"key": "C1", "method": "m", "artifact_dir": bad}]})
+        checks.append((f"review with artifact_dir {bad!r} refused before any launch", not p and e is not None))
+    p, e = run_template("review.js", {"skillDir": sk, "runDir": "/run", "critics": [
+        {"key": "C1", "method": "m", "artifact_dir": "a", "out": ".md"}]})
+    checks.append(("review with an out that names nothing refused", not p and e is not None))
+    for label, ok in checks:
+        print(f"7) {label}: {ok}")
+        if not ok:
+            fails.append(f"workflow template behaviour: {label}")
+else:
+    print("7) template behaviour: node absent, NOT checked")
+    fails.append("workflow template behaviour: node not on PATH, so check 7 cannot run")
+
 print("RESULT:", "PASS" if not fails else f"FAIL ({len(fails)})")
 for f in fails:
     print("  ", f)

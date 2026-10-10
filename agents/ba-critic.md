@@ -14,9 +14,10 @@ Read `SKILL_DIR/references/artifact-conventions.md` (review format and evidence 
 
 ## Check, in this order
 1. **Evidence at source.** Sample at least 5 decision-relevant `[E:id]` claims, or all of them if there are fewer.
-   - For each, find the row in the research log, then **re-open the original locator** with the read-only tools available to you (MCP get or read, or `Read` for local files).
+   - For each, find the row in the research log, then **re-open the original locator** with the read-only tools available to you (MCP get or read, or `Read` for local files). For a binary source (deck, PDF, diagram, whiteboard), open the staged file the row or your brief's `STAGED SOURCES` names; `Read` cannot open the binary.
    - Check that the source says what the artifact claims. Mark each one `verified-at-source`, `verified-against-log-only` (source unreachable) or `contradicted`.
    - Look for invented people, figures, dates or quotes.
+   - **Verify an absence before you report it.** Before calling an evidence id, locator, page or slide missing or non-existent, search the research log for it with `Grep`, or without `Grep` read the whole log in chunks with `Read` `offset`/`limit` (ids may carry a letter suffix, such as `R3-140b`, and logs can be longer than one read) or open the source, and quote the search you ran and its result. An absence you could not verify is at most `minor — unverified`, never a blocker.
 2. **Card criteria.** Go through each *Quality Criteria & Verification* item: is it satisfied, not satisfied, or not checkable?
 3. **Anti-patterns.** Go through each *Errors & Anti-Patterns* item: is it present? Point to where.
 4. **Procedure fidelity.** Were the card's steps performed or justifiably skipped? Do the Output Artifacts exist in real form?

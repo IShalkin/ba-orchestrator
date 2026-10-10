@@ -10,7 +10,7 @@
 | 1 | `business-process-modelling-bpmn-swimlanes` (to-be, or as-is if missing) · `entity-relationship-and-data-modelling` · `glossary` | research |
 | 2 | primary functional form (WF-T5 table: `user-stories` + `user-story-mapping`, or `use-cases`) · `business-rules-analysis` (+ `decision-tables-and-decision-trees`) · `crud-matrix` | 1 |
 | 3 | `non-functional-requirements-analysis` (+ `quality-attribute-scenarios` at deep depth) · `acceptance-and-fit-criteria` · `specification-by-example` (when rules are example-rich) | 2 |
-| 4 | `value-cost-risk-prioritization-matrix` (or `moscow` for a fixed timebox) · `requirements-traceability` | 3 |
+| 4 | `value-cost-risk-prioritization-matrix` (or `moscow` for a fixed timebox) · `requirements-traceability` (fixed `trace.csv` columns, run-protocol §8; split by capability and merged with `merge_trace.py` when large) | 3 |
 | 5 | critic pass, plus `perspective-based-reading` executors (user, developer and tester perspectives) | 4 |
 | 6 | assembly, only when the brief's deliverable format is a single document: `consolidated-solution-design-document` (requirements and solution design) or `requirements-specification-templates-srs` (requirements only), as in WF-T5 wave 4 | SYNTHESIZE (SKILL.md step 4b) |
 
@@ -23,4 +23,4 @@ WF-T5 seeds plus: the existing backlog or specification location and its convent
 3. Before wave 6: confirm with the user which sections the assembled document keeps, merges or marks n/a for this scope.
 
 ## Next
-WF-T7 acceptance planning before build; WF-T6 change control after the baseline.
+WF-T7 acceptance planning before build; WF-T6 change control after the baseline; WF-R1 to re-check the baseline when sources change.
