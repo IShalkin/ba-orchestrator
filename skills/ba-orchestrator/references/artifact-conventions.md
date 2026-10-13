@@ -35,10 +35,20 @@ Sources unavailable: <source system — error/permission — impact>
 - GAP: <what was not found, where searched>
 
 ## Evidence
-| id | source | locator | date | quote |
-|---|---|---|---|---|
-| R1-01 | Confluence | SPACE/Page title (url) §2.3 | 2024-05-02 | "..." |
+| id | source | locator | url | date | quote |
+|---|---|---|---|---|---|
+| R1-01 | Wiki | SPACE / Page title §2.3 | https://wiki.example.com/pages/123456 | 2024-05-02 | "..." |
+| R1-02 | Tracker | PROJ-123 acceptance criteria | https://tracker.example.com/browse/PROJ-123 | 2024-05-03 | "..." |
+| R1-03 | Deck | ACME scope.pptx slide 3 → <staging>/acme-scope/slide-003.md | https://files.example.com/acme/scope.pptx | 2024-05-01 | "..." |
+| R1-04 | Whiteboard | board "Discovery", widget 0-1712 | n/a: the whiteboard tool gives no item link | 2024-05-04 | "..." |
 ```
+
+**The `url` column** links the row to its source, so a deliverable page can link each fact that has a web address (`scripts/build_baseline.py`); a file path or `n/a` row is shown without a link. Every row needs one of:
+- an `http(s)://` URL to the **exact record**, with a real host: an issue's browse URL, a wiki page URL, a file's web URL, or a whiteboard item's deep link where the tool gives one. Prefer the most specific link: item deep link, then page, then file. A template or a truncation fails (`https://...`, `http://TBD`, `<id>`, `{id}`, a trailing `…`); real words in a path or query (`/display/TODO/`, `?status=none`) pass;
+- a **file path**, only for a local source with no web address (`/…`, `~/…`, `./…`, `C:\…`, or a relative path or bare file name ending in an extension); `/none`, `TBD/` and `//` fail. A staged source uses the original's web address;
+- `n/a: <reason>` when the source has no addressable URL. A bare `n/a`, or a placeholder reason (`n/a: TODO`, `n/a: <reason>`), is an error.
+
+Build the URL from the tool result (an issue key plus the tracker's browse base, a page id plus the wiki base, a file's `webUrl`); never invent or guess one. `check_artifact.py research` reads the table **by header**, so the columns are found by name (a bracketed suffix is ignored: `URL (web)` is `url`), and fails a row whose `url` is empty or none of the three forms. A header without `url` is an error, and so is a url column under another name (`link`, `web url`), unless the run's `status.json` records a release before 0.4.0: then a v0.3 log (`| id | source | locator | date | quote |`) is checked exactly as 0.3 checked it, with a WARN, so an older run can be resumed; only a row shaped like a v0.4 row (a url in its 4th cell) is an error.
 
 ## Artifact format (`03-artifacts/<method-id>/artifact.md`)
 

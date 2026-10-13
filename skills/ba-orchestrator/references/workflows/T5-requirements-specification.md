@@ -33,6 +33,7 @@
 |---|---|---|
 | 5.7 Acceptance | `acceptance-and-fit-criteria` | `specification-by-example` (key examples, Given-When-Then) when the business rules are example-rich |
 | 5.6 Phrasing pass | `ears` / `requirement-writing-patterns` over every textual requirement | `development-process-requirements` when uncertainty is so high that you specify the process instead of the product |
+| 5.8 Trace to sources (only when the request compares the requirements with named sources) | `requirements-traceability` | — |
 
 ### Wave 4 — Assemble (needs wave 3; runs after SYNTHESIZE, see SKILL.md step 4b)
 One executor assembles the document in the chosen template, referencing the artifacts. Never re-write their content in it.

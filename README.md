@@ -10,9 +10,9 @@ A Claude Code skill that runs business-analysis work as multi-agent workflows. Y
    - a synthesizer consolidates the results;
    - critics review each artifact.
 4. It **verifies** every output with deterministic scripts, outside the model.
-5. It **packages** evidence-labelled artifacts: every claim is `[E:id]`, `[ASSUMPTION]`, `[GAP]` or `[METHOD]`.
+5. It **packages** evidence-labelled artifacts: every claim is `[E:id]`, `[ASSUMPTION]`, `[GAP]` or `[METHOD]`. For a requirements request the first deliverable is a baseline page that answers the request in its own nouns: the requirement lists, each compared with every source the request names, each fact linked to its source when the source has a web address.
 
-Status: **v0.3 (pilot)**. See [Limitations](#limitations).
+Status: **v0.4 (pilot)**. See [Limitations](#limitations).
 
 ## Repository layout
 
@@ -32,6 +32,8 @@ skills/ba-orchestrator/          the skill (copy to .claude/skills/ba-orchestrat
     run_state.py                 run state machine, budgets, ownership checks, reconcile
     check_artifact.py            format and evidence-id checks for agent outputs
     find_methods.py              keyword ranking of method cards
+    build_baseline.py            the baseline page: requirements compared with each source, linked to the sources
+    refresh/*.py                 light refresh of a baseline: tracker pulls, mappings, deck and whiteboard changes
     workflows/*.js               Workflow tool templates: research, execute-wave, review, synthesize
     stage/*.py                   staging (decks, whiteboards, tracker export, workbooks) and trace merging
 agents/                          the 4 subagents (copy to .claude/agents/)
