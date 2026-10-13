@@ -56,11 +56,16 @@ def rels(z, part):
     return out
 
 
+FLD = "{%s}fld" % NS["a"]
+AUTO_FIELDS = ("slidenum", "datetime")
+
+
 def paragraphs(elem):
     out = []
     for para in elem.iter("{%s}p" % NS["a"]):
-        # <a:br> is a line break between runs; a tab is already a "\t" inside <a:t> (<a:tab> is a tab STOP)
-        t = "".join("\n" if x.tag == BR else x.text or "" for x in para.iter() if x.tag in (T, BR)).strip()
+        auto = {id(t) for f in para.iter(FLD) if (f.get("type") or "").lower().startswith(AUTO_FIELDS) for t in f.iter(T)}
+        t = "".join("\n" if x.tag == BR else x.text or "" for x in para.iter()
+                    if x.tag in (T, BR) and id(x) not in auto).strip()
         if t:
             out.append(t)
     return out
@@ -112,7 +117,7 @@ def pdf_page_count(data):
             continue
         try:
             body = zlib.decompress(m.group(1))
-        except zlib.error:  # an uncompressed (or non-Flate) object stream: scan the payload as it is
+        except zlib.error:
             body = m.group(1)
         n += len(pat.findall(body))
     return n
@@ -169,7 +174,7 @@ def render_powerpoint(deck, out_pdf):
     if not renderer_available("powerpoint"):
         return False
     with tempfile.TemporaryDirectory() as tmp:
-        src = Path(tmp) / ("deck" + deck.suffix)  # a copy: the source is never opened, so never saved
+        src = Path(tmp) / ("deck" + deck.suffix)
         shutil.copyfile(deck, src)
         r = subprocess.run(["osascript", "-e", PPT_SCRIPT, str(src), str(out_pdf.resolve())],
                            capture_output=True, text=True, timeout=600)
@@ -193,7 +198,7 @@ def rasterise(pdf, out_dir, dpi):
                 out.append(Path(shutil.move(str(p), out_dir / f"slide-{i:03d}.png")))
             return out
     try:
-        import pypdfium2, PIL  # noqa: F401  optional; Pillow is what to_pil() needs
+        import pypdfium2, PIL
     except ImportError:
         return None
     doc, out = pypdfium2.PdfDocument(str(pdf)), []
@@ -220,7 +225,7 @@ def main():
     if out.exists() and any(out.iterdir()):
         sys.exit(f"ERROR: {out} is not empty; staging into it would mix versions. Remove it or choose another OUT_DIR")
     order = [] if a.pdf or a.render == "none" else ["libreoffice", "powerpoint"] if a.render == "auto" else [a.render]
-    if order and not any(map(renderer_available, order)):  # before anything is written, so the advised retry works
+    if order and not any(map(renderer_available, order)):
         sys.exit(f"ERROR: no renderer available ({' or '.join(order)}); install LibreOffice, or pass "
                  "--pdf with an export that includes hidden slides, or --render none")
     out.mkdir(parents=True, exist_ok=True)

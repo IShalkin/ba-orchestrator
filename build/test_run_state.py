@@ -16,7 +16,7 @@ class RunStateTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.run = Path(self.tmp.name) / "run"
-        skill = Path(self.tmp.name) / "skill"  # isolated, so concurrent edits to the real skill cannot flake verify-writes
+        skill = Path(self.tmp.name) / "skill"
         skill.mkdir()
         r = rs("init", self.run, "--depth", "light", "--skill-dir", skill)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -29,6 +29,18 @@ class RunStateTest(unittest.TestCase):
 
     def budget(self, *extra):
         return rs("budget", self.run, *extra)
+
+    def test_a_new_run_is_held_to_the_current_evidence_format(self):
+        """init records the release; without it every new run reads as a v0.3 run and a log with no url column passes."""
+        (self.run / "02-research").mkdir(parents=True)
+        log = self.run / "02-research" / "R2.md"
+        log.write_text("Sources searched: wiki\n\n## Findings by research question\n### RQ1\nFound [E:R2-1].\n\n## Evidence\n"
+                       "| id | source | locator | date | quote |\n|---|---|---|---|---|\n| R2-1 | wiki | p1 | 2026 | \"text\" |\n",
+                       encoding="utf-8")
+        r = rs("research", log, script=CA)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("no url column", r.stdout)
+        self.assertRegex(self.status()["skill_version"].get("release") or "", r"^\d+\.\d+\.\d+$")
 
     def test_raise_records_event(self):
         r = self.budget("--max-agents", 20, "--max-attempts", 4, "--reason", "outage", "--approved-by", "alice")
@@ -49,7 +61,7 @@ class RunStateTest(unittest.TestCase):
 
     def test_refusals(self):
         before = self.status()["budget"]
-        cases = [  # (name, args, expected stderr fragment) -- the fragment proves the refusal is budget's own
+        cases = [
             ("lower", ["--max-agents", 2, "--reason", "x", "--approved-by", "u"], "can only be raised"),
             ("equal", ["--max-waves", before["max_waves"], "--reason", "x", "--approved-by", "u"], "can only be raised"),
             ("no limit", ["--reason", "x", "--approved-by", "u"], "give at least one"),
@@ -68,7 +80,7 @@ class RunStateTest(unittest.TestCase):
 
     def test_below_launches_refused(self):
         st = self.status()
-        st["launches"] = 30  # a status.json already past its limit, e.g. from an earlier hand edit
+        st["launches"] = 30
         (self.run / "status.json").write_text(json.dumps(st), encoding="utf-8")
         r = self.budget("--max-agents", 20, "--reason", "x", "--approved-by", "u")
         self.assertEqual(r.returncode, 2)
@@ -86,11 +98,11 @@ class RunStateTest(unittest.TestCase):
                 r = rs("add", self.run, key, "--role", role, "--output", out, "--wave", 1)
                 self.assertEqual(r.returncode, 2)
                 self.assertIn("register the", r.stderr)
-        self.assertEqual(self.status()["agents"], [])  # refused before registering: the same key can be re-added
+        self.assertEqual(self.status()["agents"], [])
         r = rs("add", self.run, "E2", "--role", "executor", "--output", "03-artifacts/m2", "--wave", 1)
         self.assertEqual(r.returncode, 0, r.stderr)
         r = rs("add", self.run, "E3", "--role", "executor", "--output", "03-artifacts/m3--v1.2", "--wave", 1)
-        self.assertEqual(r.returncode, 0, r.stderr)  # a dot in a scope is not a file
+        self.assertEqual(r.returncode, 0, r.stderr)
         r = rs("add", self.run, "R1", "--role", "researcher", "--output", "02-evidence/r1.md", "--wave", 1)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(rs("phase", self.run, "EXECUTE", "--wave", 1).returncode, 0)
@@ -101,7 +113,6 @@ class RunStateTest(unittest.TestCase):
             (d / name).write_text("x", encoding="utf-8")
         r = rs("verify-writes", self.run)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        # controls: a companion next to a FILE registration, and a sibling directory sharing the prefix
         f = self.run / "02-evidence"
         f.mkdir(parents=True)
         (f / "r1.md").write_text("x", encoding="utf-8")
@@ -131,18 +142,18 @@ class RunStateTest(unittest.TestCase):
 
     def test_only_the_logged_snapshot_is_trusted(self):
         self.wave2_after_wave1()
-        self.write("03-artifacts/E1/artifact.md")  # a real violation
+        self.write("03-artifacts/E1/artifact.md")
         fake = {"wave": 2, "events": 0, "run": {"03-artifacts/E1/artifact.md": "x"}, "skill_dir": "/nonexistent", "skill": {}}
         (self.run / ".snapshots" / "999-wave2.json").write_text(json.dumps(fake), encoding="utf-8")
         r = rs("verify-writes", self.run)
-        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)  # the newer-looking stray file is never loaded
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
         self.assertIn("VIOLATION 03-artifacts/E1/artifact.md", r.stdout)
         snap = self.run / ".snapshots" / "000-wave2.json"
         snap.write_text(snap.read_text(encoding="utf-8").replace('"wave": 2', '"wave": 1'), encoding="utf-8")
         r = rs("verify-writes", self.run)
         self.assertEqual(r.returncode, 5)
         self.assertIn("modified after it was taken", r.stderr)
-        self.assertEqual(rs("snapshot", self.run).returncode, 0)  # numbering follows the log, not the directory
+        self.assertEqual(rs("snapshot", self.run).returncode, 0)
         self.assertTrue((self.run / ".snapshots" / "001-wave2.json").exists())
 
     def test_lookalike_of_own_files_is_checked(self):
@@ -160,14 +171,14 @@ class RunStateTest(unittest.TestCase):
         self.assertEqual(rs("verify-writes", self.run).returncode, 5)
         rs("set", self.run, "E1", "revise")
         rs("set", self.run, "E1", "running")
-        self.assertEqual(rs("verify-writes", self.run).returncode, 0)  # now allowed: E1 is relaunched
-        self.assertIn("WRITE VIOLATION", rs("show", self.run).stdout)  # but the earlier finding stays on record
+        self.assertEqual(rs("verify-writes", self.run).returncode, 0)
+        self.assertIn("WRITE VIOLATION", rs("show", self.run).stdout)
         self.assertIn("03-artifacts/E1/artifact.md", rs("show", self.run).stdout)
 
     def test_revision_of_earlier_wave_allowed_only_when_relaunched(self):
         self.wave2_after_wave1()
         self.write("03-artifacts/E1/artifact.md")
-        r = rs("verify-writes", self.run)  # control: E1 was not running in the window
+        r = rs("verify-writes", self.run)
         self.assertEqual(r.returncode, 5, r.stdout)
         self.assertIn("VIOLATION 03-artifacts/E1/artifact.md", r.stdout)
         rs("set", self.run, "E1", "revise")
@@ -192,7 +203,7 @@ class RunStateTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         for rel in ("00-intake/brief.md", "01-plan/plan.md", "06-final/README.md"):
             self.assertIn(f"ORCHESTRATOR WRITE {rel}", r.stdout)
-        self.write("01-planx/plan.md")  # control: a prefix lookalike is still a violation
+        self.write("01-planx/plan.md")
         r = rs("verify-writes", self.run)
         self.assertEqual(r.returncode, 5)
         self.assertIn("VIOLATION 01-planx/plan.md", r.stdout)
@@ -223,13 +234,13 @@ class RunStateTest(unittest.TestCase):
         rs("set", self.run, "S1", "running")
         rs("set", self.run, "S1", "done")
         r = rs("add", self.run, "SF", "--role", "synthesizer", "--output", "04-synthesis")
-        self.assertEqual(r.returncode, 4)  # control: S2 is still queued, a live owner inside the directory
+        self.assertEqual(r.returncode, 4)
         self.assertIn("S2", r.stderr)
         rs("set", self.run, "S2", "running")
         rs("set", self.run, "S2", "done")
         r = rs("add", self.run, "SF", "--role", "synthesizer", "--output", "04-synthesis")
         self.assertEqual(r.returncode, 0, r.stderr)
-        rs("set", self.run, "S1", "revise")  # a partial re-opened under the final is live again
+        rs("set", self.run, "S1", "revise")
         r = rs("add", self.run, "SG", "--role", "executor", "--output", "04-synthesis/wave-1/x")
         self.assertEqual(r.returncode, 4)
 
@@ -243,7 +254,7 @@ class RunStateTest(unittest.TestCase):
         rs("set", self.run, "SF", "running")
         self.write("04-synthesis/synthesis.md")
         r = rs("verify-writes", self.run)
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)  # control: its own file
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.write("04-synthesis/wave-1/synthesis.md")
         r = rs("verify-writes", self.run)
         self.assertEqual(r.returncode, 5, r.stdout)
@@ -267,7 +278,7 @@ class RunStateTest(unittest.TestCase):
         run2 = Path(self.tmp.name) / "run2"
         self.assertEqual(rs("init", run2, "--depth", "light", "--skill-dir", Path(self.tmp.name) / "skill",
                             "--baseline", base).returncode, 0)
-        self.assertNotIn("baseline", rs("reconcile", run2).stdout)  # control: unchanged
+        self.assertNotIn("baseline", rs("reconcile", run2).stdout)
         (base / "catalogue.md").write_text("FR-1\nFR-2 added without change control", encoding="utf-8")
         r = rs("reconcile", run2)
         self.assertEqual(r.returncode, 6)
@@ -284,7 +295,7 @@ class RunStateTest(unittest.TestCase):
         for s in ("running", "done"):
             rs("set", self.run, "SF", s)
         self.write("04-synthesis/wave-1/synthesis.md")
-        r = rs("reconcile", self.run)  # the partial's files are not the final's output
+        r = rs("reconcile", self.run)
         self.assertEqual(r.returncode, 6, r.stdout)
         self.assertIn("SF [synthesizer done] 04-synthesis: marked done but output missing", r.stdout)
         self.write("04-synthesis/synthesis.md")
@@ -319,10 +330,10 @@ class RunStateTest(unittest.TestCase):
 
     def test_revision_makes_dependent_stale_until_rerun(self):
         self.cascade()
-        self.assertEqual(rs("stale", self.run).stdout, "")  # control: nothing changed after C1 finished
+        self.assertEqual(rs("stale", self.run).stdout, "")
         for s in ("revise", "running"):
             rs("set", self.run, "E1", s)
-        self.assertEqual(rs("stale", self.run).stdout, "")  # not changed until the revision is done
+        self.assertEqual(rs("stale", self.run).stdout, "")
         rs("set", self.run, "E1", "done")
         r = rs("stale", self.run)
         self.assertEqual(r.returncode, 0)
@@ -346,12 +357,12 @@ class RunStateTest(unittest.TestCase):
             rs("set", self.run, "E1", s)
         rs("set", self.run, "C1", "revise")
         self.assertEqual(rs("set", self.run, "C1", "cancelled").returncode, 0)
-        self.assertIn("STALE C1", rs("stale", self.run).stdout)  # its artifact is still on disk
+        self.assertIn("STALE C1", rs("stale", self.run).stdout)
         self.assertIn("STALE C1", rs("show", self.run).stdout)
         self.assertEqual(rs("reconcile", self.run).returncode, 6)
         self.assertEqual(rs("terminal", self.run, "completed", "--reason", "x").returncode, 2)
         r = rs("terminal", self.run, "completed_with_defects", "--reason", "C1 cancelled stale")
-        self.assertEqual(r.returncode, 0, r.stderr)  # the way out, with the stale line printed for the README
+        self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("STALE C1", r.stdout)
 
     def test_failed_child_does_not_shadow_a_later_parent(self):
@@ -373,7 +384,6 @@ class RunStateTest(unittest.TestCase):
         rs("set", self.run, "F", "running")
         self.write("03-artifacts/m/sub/artifact.md")
         rs("set", self.run, "F", "failed")
-        # its replacement, registered over it before this wave is verified, does not take its files
         self.assertEqual(rs("add", self.run, "P", "--role", "executor", "--output", "03-artifacts/m", "--wave", 3).returncode, 0)
         r = rs("verify-writes", self.run)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -382,7 +392,7 @@ class RunStateTest(unittest.TestCase):
         rs("phase", self.run, "EXECUTE", "--wave", 1)
         rs("snapshot", self.run)
         self.write("03-artifacts/x/__pycache__/a.pyc")
-        self.assertEqual(rs("verify-writes", self.run).returncode, 0)  # control: a cache directory is skipped
+        self.assertEqual(rs("verify-writes", self.run).returncode, 0)
         self.write("03-artifacts/other/notes__pycache__.md")
         r = rs("verify-writes", self.run)
         self.assertEqual(r.returncode, 5, r.stdout)
@@ -397,7 +407,7 @@ class RunStateTest(unittest.TestCase):
         rs("snapshot", self.run)
         rs("set", self.run, "SF", "running")
         self.write("04-synthesis/synthesis.md")
-        self.assertEqual(rs("verify-writes", self.run).returncode, 0)  # control: its own file
+        self.assertEqual(rs("verify-writes", self.run).returncode, 0)
         self.write("04-synthesis/wave-1/synthesis.md")
         r = rs("verify-writes", self.run)
         self.assertEqual(r.returncode, 5, r.stdout)
@@ -407,7 +417,7 @@ class RunStateTest(unittest.TestCase):
         rs("add", self.run, "X1", "--role", "executor", "--output", "03-artifacts/x1")
         rs("add", self.run, "X2", "--role", "executor", "--output", "03-artifacts/x2", "--depends-on", "X1")
         rs("set", self.run, "X1", "running")
-        r = rs("set", self.run, "X2", "running")  # the same wave as its upstream
+        r = rs("set", self.run, "X2", "running")
         self.assertEqual(r.returncode, 2)
         self.assertIn("depends on X1 (running)", r.stderr)
         rs("set", self.run, "X1", "done")
@@ -422,7 +432,7 @@ class RunStateTest(unittest.TestCase):
                 rs("add", run, "X2", "--role", "executor", "--output", "03-artifacts/x2", "--depends-on", "X1")
                 for k, s in (("X1", "running"), ("X1", "done"), ("X2", "running"), ("X1", "revise"), ("X1", "running")):
                     rs("set", run, k, s)
-                rs("set", run, first, "done")  # X2 read the old X1; whichever finishes first, X2 is stale
+                rs("set", run, first, "done")
                 rs("set", run, second, "done")
                 self.assertIn("STALE X2", rs("stale", run).stdout)
                 self.assertEqual(rs("terminal", run, "completed", "--reason", "x").returncode, 2)
@@ -447,10 +457,10 @@ class RunStateTest(unittest.TestCase):
         self.cascade()
         for s in ("revise", "running", "done"):
             rs("set", self.run, "E1", s)
-        r = rs("set", self.run, "C1", "done")  # control: a bare done -> done stays illegal
+        r = rs("set", self.run, "C1", "done")
         self.assertEqual(r.returncode, 2)
         r = rs("set", self.run, "C1", "done", "--note", "accepted stale: ")
-        self.assertEqual(r.returncode, 2)  # an empty reason is no acceptance
+        self.assertEqual(r.returncode, 2)
         r = rs("set", self.run, "C1", "done", "--note", "accepted stale: change was a typo fix")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(rs("stale", self.run).stdout, "")
@@ -469,13 +479,12 @@ class RunStateTest(unittest.TestCase):
     def test_estimate(self):
         r = rs("estimate", "--researchers", 19, "--executors", 11, "--critics", 11)
         self.assertEqual(r.returncode, 0, r.stderr)
-        # base 19+11+11+1=42; revisions 11*0.7=7.7; relaunches 49.7*0.1=4.97; total ceil(54.67)=55
         for frag in ("base launches: 42", "expected revisions: 7.7", "expected relaunches: 5.0", "total: 55",
                      "none"):
             self.assertIn(frag, r.stdout)
         r = rs("estimate", "--researchers", 2, "--executors", 10, "--critics", 0, "--synthesizers", 0,
                "--revise-rate", 0.7, "--failure-rate", 0)
-        self.assertIn("total: 19", r.stdout)  # 12 + 10 x 0.7, no relaunches
+        self.assertIn("total: 19", r.stdout)
         self.assertIn("fits: standard", r.stdout)
         r = rs("estimate", "--researchers", 2, "--executors", 2, "--critics", 2, "--synthesizers", 0,
                "--revise-rate", 0, "--failure-rate", 0)
@@ -485,13 +494,13 @@ class RunStateTest(unittest.TestCase):
     def test_unfinished_research_skeleton_fails(self):
         log = Path(self.tmp.name) / "R1.md"
         body = ("# R1\n\nSources searched: wiki\n\n## Findings by research question\n### RQ1\n{rq1}\n"
-                "### RQ2\nGAP: nothing in wiki\n\n## Evidence\n| id | source | locator | date | quote |\n|---|---|---|---|---|\n"
-                "| R1-1 | wiki | page 1 | 2026 | \"text\" |\n")
+                "### RQ2\nGAP: nothing in wiki\n\n## Evidence\n| id | source | locator | url | date | quote |\n"
+                "|---|---|---|---|---|---|\n| R1-1 | wiki | page 1 | https://wiki.example.com/p/1 | 2026 | \"text\" |\n")
         log.write_text(body.format(rq1="GAP: not yet searched"), encoding="utf-8")
         r = rs("research", log, script=CA)
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertIn("not yet searched", r.stdout)
-        log.write_text(body.format(rq1="Found it [E:R1-1]."), encoding="utf-8")  # control: the finished log passes
+        log.write_text(body.format(rq1="Found it [E:R1-1]."), encoding="utf-8")
         r = rs("research", log, script=CA)
         self.assertEqual(r.returncode, 0, r.stdout)
 

@@ -52,6 +52,7 @@ for stream in (sys.stdout, sys.stderr):
 
 PHASES = ["INTAKE", "PLAN", "AWAIT_PLAN_APPROVAL", "RESEARCH", "EXECUTE", "AWAIT_GATE",
           "SYNTHESIZE", "REVIEW", "PACKAGE"]
+SKILL_VERSION = "0.4.0"
 TERMINAL = ["completed", "completed_with_defects", "needs_user_input", "insufficient_evidence",
             "dependency_failed", "budget_exhausted", "cancelled", "policy_denied"]
 ROLES = ["researcher", "executor", "synthesizer", "critic"]
@@ -68,10 +69,10 @@ DEPTH_BUDGET = {"light": (8, 4), "standard": (25, 6), "deep": (50, 8)}
 MAX_REVISIONS = 2
 MAX_ATTEMPTS = 2
 ACCEPT_STALE = "accepted stale:"
-REVISE_RATE, FAILURE_RATE = 0.7, 0.1  # defaults for `estimate`, observed in a deep field run
+REVISE_RATE, FAILURE_RATE = 0.7, 0.1
 FILE_SUFFIXES = (".md", ".csv", ".mmd", ".json", ".txt", ".html")
-RUN_SKIP = ("status.json", "status.json.tmp", ".snapshots/")  # run_state.py's own files
-ORCHESTRATOR_PATHS = ("00-intake/", "01-plan/", "06-final/")  # run-protocol §1: orchestrator only
+RUN_SKIP = ("status.json", "status.json.tmp", ".snapshots/")
+ORCHESTRATOR_PATHS = ("00-intake/", "01-plan/", "06-final/")
 
 
 def die(code, msg):
@@ -134,7 +135,7 @@ def stale_agents(st):
         if len(w) >= 3 and w[0] == "set" and w[2] == "running":
             read_at[w[1]] = i
         elif len(w) >= 3 and w[0] == "set" and w[2] == "done":
-            if e.get("type") == "stale_accepted":  # an acceptance changes no content downstream
+            if e.get("type") == "stale_accepted":
                 read_at[w[1]] = i
             else:
                 changed[w[1]] = (i, e["t"])
@@ -168,6 +169,7 @@ def cmd_init(a):
     st = {
         "run_id": run.name, "created": time.strftime("%Y-%m-%dT%H:%M:%S"), "depth": a.depth,
         "skill_version": {
+            "release": SKILL_VERSION,
             "skill_dir": str(skill),
             "skill_tree_sha": tree_hash(skill),
             "methods_index_sha": hashlib.sha256(idx.read_bytes()).hexdigest()[:16] if idx.exists() else None,
@@ -178,7 +180,8 @@ def cmd_init(a):
         "baseline": baseline,
     }
     save(run, st, "init")
-    print(f"initialised {run / 'status.json'}  budget={st['budget']}  version={st['skill_version']['skill_tree_sha']}")
+    print(f"initialised {run / 'status.json'}  budget={st['budget']}  version={SKILL_VERSION} "
+          f"({st['skill_version']['skill_tree_sha']})")
 
 
 def cmd_phase(a):
@@ -209,7 +212,7 @@ def cmd_add(a):
     if unknown:
         die(2, f"--depends-on: unknown agent key(s) {unknown}; register them first")
     out = posixpath.normpath(Path(a.output).as_posix())
-    win = PureWindowsPath(a.output)  # host-independent: `C:/x`, `C:x`, `\\server\share` and `\x` escape RUN_DIR on Windows
+    win = PureWindowsPath(a.output)
     if (posixpath.isabs(out) or win.anchor or out == "." or ".." in out.split("/")
             or ".." in Path(a.output).as_posix().split("/") or ".." in win.parts):
         die(2, f"--output {a.output!r} must be a path relative to RUN_DIR without '..'")
@@ -218,7 +221,7 @@ def cmd_add(a):
         if x["state"] in ("cancelled", "failed") or not (o == out or out.startswith(o + "/") or o.startswith(out + "/")):
             continue
         if x["state"] == "done" and x["role"] == a.role == "synthesizer" and o.startswith(out + "/"):
-            continue  # the final synthesizer's directory holds the finished partial syntheses (wave-<n>/)
+            continue
         die(4, f"duplicate assignment: {out} overlaps {o} owned by {x['key']} ({x['state']})")
     if st["launches"] >= st["budget"]["max_agents"]:
         die(3, f"budget_exhausted: {st['launches']} launches >= max_agents {st['budget']['max_agents']}")
@@ -333,7 +336,7 @@ def baseline_changed(st):
 
 def cmd_snapshot(a):
     st = load(a.run)
-    snap = {"wave": st["wave"], "events": len(st["events"]),  # event-log position: who is launched after this
+    snap = {"wave": st["wave"], "events": len(st["events"]),
             "run": file_hashes(a.run, skip=RUN_SKIP)}
     skill = a.skill_dir or st["skill_version"]["skill_dir"]
     snap["skill_dir"] = skill
@@ -343,8 +346,6 @@ def cmd_snapshot(a):
     n = sum(e.get("type") == "snapshot" for e in st["events"])
     name, data = f"{n:03d}-wave{st['wave']}.json", json.dumps(snap)
     (d / name).write_text(data, encoding="utf-8")
-    # the snapshot used by verify-writes is the one logged here, checked by hash: a file dropped in
-    # .snapshots/ is never loaded
     st["events"].append({"t": time.strftime("%Y-%m-%dT%H:%M:%S"), "msg": f"snapshot {name}", "type": "snapshot",
                          "file": name, "sha": hashlib.sha256(data.encode("utf-8")).hexdigest()})
     save(a.run, st)
@@ -366,7 +367,6 @@ def cmd_verify_writes(a):
     if hashlib.sha256(data).hexdigest() != logged[-1]["sha"]:
         die(5, f"snapshot {f.name} is missing or was modified after it was taken; the wave cannot be verified")
     snap = json.loads(data)
-    # this wave's agents, plus earlier agents (re)launched since the snapshot: revise/failed -> running
     relaunched = set()
     for e in st["events"][snap["events"]:]:
         w = e["msg"].split()
@@ -375,9 +375,7 @@ def cmd_verify_writes(a):
     owners = [x for x in st["agents"] if x["state"] != "cancelled"]
     allowed = [x["output"] for x in owners if x["wave"] == snap["wave"] or x["key"] in relaunched]
 
-    def owner(c):  # the longest registered output containing c: a final synthesizer does not own wave-<n>/
-        # a failed owner outside this wave yields, since `add` lets a later agent register over a failed output;
-        # a failed partial synthesizer does not: its wave-<n>/ is never the final synthesizer's to write
+    def owner(c):
         hits = [x for x in owners if c == x["output"] or c.startswith(x["output"] + "/")]
         keeps = lambda x: x["state"] != "failed" or x["role"] == "synthesizer" or x["output"] in allowed
         return max(hits, key=lambda x: (keeps(x), len(x["output"])), default=None)
@@ -393,7 +391,6 @@ def cmd_verify_writes(a):
     if bad:
         for b in bad:
             print("  VIOLATION", b)
-        # logged, so a later relaunch of the owner (which would allow the path) cannot erase it
         st["events"].append({"t": time.strftime("%Y-%m-%dT%H:%M:%S"), "msg": f"verify-writes {len(bad)} violation(s)",
                              "type": "write_violation", "snapshot": logged[-1]["file"], "files": bad})
         save(a.run, st)
@@ -406,14 +403,14 @@ def cmd_reconcile(a):
     run = Path(a.run)
     issues = []
     print(f"run {st['run_id']} phase={st['phase']} wave={st['wave']} terminal={st['terminal']}")
-    print(f"skill version at init {st['skill_version']['skill_tree_sha']}; now {tree_hash(st['skill_version']['skill_dir'])}")
+    print(f"skill version at init {st['skill_version'].get('release', 'before 0.4.0')} "
+          f"({st['skill_version']['skill_tree_sha']}); now {SKILL_VERSION} ({tree_hash(st['skill_version']['skill_dir'])})")
     if tree_hash(st["skill_version"]["skill_dir"]) != st["skill_version"]["skill_tree_sha"]:
         issues.append("skill files changed since the run started (cards/workflows may differ)")
     for x in st["agents"]:
         p = run / x["output"]
         if x["role"] == "executor":
-            p = p / "artifact.md"  # companions alone do not make an executor's output
-        # a final synthesizer's directory also holds the partial ones (wave-<n>/): only its own files count
+            p = p / "artifact.md"
         exists = p.exists() and (p.is_file() or any(f.is_file() or x["role"] != "synthesizer" for f in p.iterdir()))
         hint = ""
         if x["state"] == "done" and not exists:

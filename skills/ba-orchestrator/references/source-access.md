@@ -21,6 +21,8 @@ Project materials are reached through whatever the user has connected in the ses
 | Decks / documents (local) | `Read` on the staged renders and text layers (§4), `Grep`, `Glob` | strategy, goals, KPIs, roadmap, org charts | path, page or slide number |
 | Web (only if the brief allows it) | `WebSearch`, `WebFetch` | market, competitors, regulation, standards | URL, retrieval date |
 
+Every evidence row also carries a `url` (`artifact-conventions.md`): the record's own web address, built from the tool result (issue key + browse base, page id + wiki base, file `webUrl`, item deep link), or `n/a: <reason>`. For a **staged** source, the `url` is the original's web address (the brief lists it next to the staged files), and the staged file goes in the locator after `→`; a staged path is a local file and never links on a deliverable page.
+
 ## 3. Rules
 
 - **Read-only.** Never create, edit, comment, transition or upload in a source system unless the user explicitly asks for that specific action.

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+- **Baseline page first.** `scripts/build_baseline.py` writes `06-final/baseline.html` for every requirements run: one table per requirement type, one column per named source, links to the exact slide, whiteboard item or ticket where the source has a web address, then requirements with no ticket, tickets with no requirement, and conflicts. Coverage is recomputed from the trace and must match `coverage-summary.json`. The page is refused if it would show a home path, an account-id-like number, an access key id or an evidence tag; the refusal names the carrier, not the match.
+- **Evidence links.** Research logs carry a required `url` column (`| id | source | locator | url | date | quote |`). `check_artifact.py` reads the table by header.
+- **Light refresh (WF-R1 Light mode).** `scripts/refresh/` (`init_state`, `tracker_merge`, `apply_mappings`, `source_check`, `accept`) keeps a baseline current: tracker pulls must be complete, decks are compared by slide content, whiteboards by item id with nested areas, and every changed, re-opened, unmapped or unchecked item counts in `NEEDS REVIEW`. `accept.py` clears only the state a review saw. Limits are listed in R1.
+- **Version.** `run_state.py init` records the release.
+- **Tests.** `build/test_build_baseline.py`, `build/test_refresh.py`.
+
+**Migration.** Runs started under 0.3 keep their research logs without `url` (WARN). Refresh states from pre-release copies must be re-initialised.
+
 ## 0.3.0
 
 Fixes from a deep field run (19 researchers, 11 executors, 11 critics; many sources were diagrams and slide decks):
